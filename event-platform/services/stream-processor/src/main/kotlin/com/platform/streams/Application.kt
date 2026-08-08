@@ -25,7 +25,7 @@ fun main() {
         put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(Constants.ENV_KAFKA_BROKERS) ?: Constants.DEFAULT_KAFKA_BROKERS)
         put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, Constants.STREAM_THREADS)
         put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE_V2)
-        put(StreamsConfig.DEFAULT_REPLICATION_FACTOR_CONFIG, Constants.REPLICATION_FACTOR)
+        put(StreamsConfig.REPLICATION_FACTOR_CONFIG, Constants.REPLICATION_FACTOR)
     }
 
     val schemaRegistryUrl = System.getenv(Constants.ENV_SCHEMA_REGISTRY_URL) ?: Constants.DEFAULT_SCHEMA_REGISTRY_URL

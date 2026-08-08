@@ -5,19 +5,21 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"context"
 
 	"event-platform/ingestion-api/internal/eventtypes"
 	"event-platform/ingestion-api/internal/httpapi"
+	"event-platform/ingestion-api/internal/ingest"
 )
 
 type noopProducer struct{}
 
-func (noopProducer) Produce(_ interface{}, _ string, _ interface{}) error { return nil }
-func (noopProducer) Close()                                               {}
+func (noopProducer) Produce(_ context.Context, _ string, _ ingest.RawEvent) error { return nil }
+func (noopProducer) Close()                                                        {}
 
 type noopDeduper struct{}
 
-func (noopDeduper) SeenBefore(_ interface{}, _ string) (bool, error) { return false, nil }
+func (noopDeduper) SeenBefore(_ context.Context, _ string) (bool, error) { return false, nil }
 
 func BenchmarkHandlerHappyPath(b *testing.B) {
 	_ = eventtypes.LoadFromConfig(eventtypes.Config{
@@ -26,7 +28,7 @@ func BenchmarkHandlerHappyPath(b *testing.B) {
 		},
 	})
 
-	handler := httpapi.NewHandler(nil, nil)
+	handler := httpapi.NewHandler(noopProducer{}, noopDeduper{})
 	body := `{"event_id":"bench-001","event_type":"heartbeat","payload":"{}"}`
 
 	b.ResetTimer()

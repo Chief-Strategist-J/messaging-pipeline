@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm") version "1.9.22"
-    id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
     application
 }
 
@@ -17,6 +16,13 @@ dependencies {
     implementation("io.confluent:kafka-streams-avro-serde:7.6.0")
     implementation("org.apache.avro:avro:1.11.3")
     implementation("org.slf4j:slf4j-simple:2.0.12")
+
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 application {
