@@ -1,0 +1,1 @@
+dropped_iterations: 1500 (0 means VUs were NOT the bottleneck)

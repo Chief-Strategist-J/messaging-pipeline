@@ -5,88 +5,88 @@
   "attachments": [
     {
       "name": "environment_framing_notice",
-      "source": "a5367424-45e2-474e-a90e-e392acbcbd34-attachment.txt",
+      "source": "ae47b1fa-6d1d-48db-a07e-90d6a88a4e17-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "pre_test_db_count",
-      "source": "f9919402-bea8-4089-ab92-96e7e415c614-attachment.txt",
+      "source": "fa6638f6-61a5-4c4d-9046-4d8b3a4b7909-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "baseline_docker_stats",
-      "source": "41c9c1b7-43fd-4802-8c77-5ace212646ed-attachment.txt",
+      "source": "91169131-7c1a-4c6e-a221-c18c6a791924-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "baseline_kafka_lag",
-      "source": "250f3b1f-04e0-498e-9eb2-0831172c024e-attachment.txt",
+      "source": "2f3786ac-1853-4be2-802d-25679d8e42a0-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "k6_command",
-      "source": "cdc6e3db-7986-4e8e-a81f-9e2e20e8c5c9-attachment.txt",
+      "source": "bf3df62d-5f42-4c3f-beab-3351e552f63b-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "k6_full_output",
-      "source": "b2155ca8-7c77-4262-be49-a0b16a77d6f3-attachment.txt",
+      "source": "b4430969-5c5e-4251-83bb-4edc3ade5708-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "docker_stats_timeseries",
-      "source": "654ad3b8-6e4d-46db-b65f-3a3303cce7d9-attachment.txt",
+      "source": "79dc7804-0111-4078-acab-9c6a9709d993-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "kafka_lag_timeseries",
-      "source": "0697f126-f18f-43c1-bb25-8d08c672ccce-attachment.txt",
+      "source": "3c47885b-e5c8-4ff2-959a-d9a9c7bb11b7-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "final_docker_stats",
-      "source": "d961283a-a668-4a46-81a7-d87f416997fe-attachment.txt",
+      "source": "1185ba6b-dcb5-4924-9995-2ca55f2fccc5-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "final_kafka_lag",
-      "source": "d7634f05-add1-4085-8017-1730ad9f2600-attachment.txt",
+      "source": "12f53841-03da-49b7-b728-89ac8776c17b-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "k6-results.json",
-      "source": "13cf5c67-1be8-4c2c-9f24-d0176b0cc09b-attachment.json",
+      "source": "9c17fd43-c904-4a02-bc4f-6c23cc0fbd3f-attachment.json",
       "type": "application/json"
     },
     {
       "name": "dropped_iterations_check",
-      "source": "1cc11a4b-40fe-4794-913d-1734e6ce701e-attachment.txt",
+      "source": "2e900715-90e3-456a-bfc6-534a646341ab-attachment.txt",
       "type": "text/plain"
     },
     {
       "name": "target_vs_achieved_summary",
-      "source": "dc5a0c82-2a0b-417a-855c-d4c6768640a1-attachment.json",
+      "source": "e8348d68-09aa-4086-8b93-c2f8be6eba0a-attachment.json",
       "type": "application/json"
     }
   ],
-  "start": 1786184099949,
-  "stop": 1786184190891,
-  "uuid": "e248de95-06c9-4caf-b4ce-64d9e65844f0",
+  "start": 1786184624835,
+  "stop": 1786184703602,
+  "uuid": "307e6e2f-c0f6-48de-a5e5-2d58812695a7",
   "historyId": "e26b6aa2eff2cbd526554bf482c83d8a",
   "testCaseId": "e26b6aa2eff2cbd526554bf482c83d8a",
   "fullName": "test_ingestion_pipeline#test_load_10k_requests",
   "labels": [
     {
-      "name": "severity",
-      "value": "critical"
+      "name": "story",
+      "value": "10K Request Load Test \u2014 500KB Payload"
     },
     {
       "name": "feature",
       "value": "Performance & Scalability"
     },
     {
-      "name": "story",
-      "value": "10K Request Load Test \u2014 500KB Payload"
+      "name": "severity",
+      "value": "critical"
     },
     {
       "name": "suite",
@@ -98,7 +98,7 @@
     },
     {
       "name": "thread",
-      "value": "597692-MainThread"
+      "value": "621338-MainThread"
     },
     {
       "name": "framework",
