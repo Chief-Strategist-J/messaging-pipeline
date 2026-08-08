@@ -1,0 +1,20 @@
+{
+  "name": "postgres-raw-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:postgresql://postgres:5432/app",
+    "connection.user": "app",
+    "connection.password": "app",
+    "topics": "events.raw",
+    "table.name.format": "raw_events",
+    "insert.mode": "upsert",
+    "pk.mode": "record_key",
+    "pk.fields": "event_id",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://schema-registry:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081"
+  }
+}

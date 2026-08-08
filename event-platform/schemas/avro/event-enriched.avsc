@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "EnrichedEvent",
+  "namespace": "com.platform.events",
+  "fields": [
+    { "name": "event_type", "type": "string" },
+    { "name": "window_start", "type": "long", "logicalType": "timestamp-millis" },
+    { "name": "count", "type": "long" }
+  ]
+}

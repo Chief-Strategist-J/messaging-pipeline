@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "RawEvent",
+  "namespace": "com.platform.events",
+  "fields": [
+    { "name": "event_id", "type": "string" },
+    { "name": "event_type", "type": "string" },
+    { "name": "occurred_at", "type": "long", "logicalType": "timestamp-millis" },
+    { "name": "payload", "type": "string" }
+  ]
+}

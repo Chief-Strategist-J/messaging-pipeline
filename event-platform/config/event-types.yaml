@@ -1,0 +1,19 @@
+event_types:
+  - name: heartbeat
+    topic: events.raw
+
+  - name: page_view
+    topic: events.raw
+    payload_validation:
+      - field: url
+        required: true
+        max_length: 2048
+
+  - name: purchase
+    topic: events.raw
+    payload_validation:
+      - field: amount_cents
+        required: true
+      - field: currency
+        required: true
+    custom_processor: purchaseEnrichment
