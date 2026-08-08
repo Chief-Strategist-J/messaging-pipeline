@@ -1,0 +1,1 @@
+docker run --rm --add-host=host.docker.internal:host-gateway -v /home/btpl-lap-22/live/messaging-pipeline/event-platform/loadtest:/scripts grafana/k6:latest run --summary-export=/scripts/k6-results.json /scripts/k6_10k_500kb.js

@@ -1,0 +1,12 @@
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+angry_johnson                      73.56%    226.6MiB / 15.49GiB   13.3MB / 5.11GB
+event-platform-ingestion-api-1     73.95%    122MiB / 256MiB       16.7GB / 134MB
+event-platform-connect-1           8.80%     1.984GiB / 15.49GiB   358MB / 17.1GB
+event-platform-kafka-1             114.31%   591.2MiB / 15.49GiB   356MB / 345MB
+event-platform-grafana-1           0.59%     130MiB / 15.49GiB     23.3MB / 8.06MB
+event-platform-schema-registry-1   0.21%     117.3MiB / 15.49GiB   2.56MB / 2.33MB
+event-platform-otel-collector-1    0.02%     28.89MiB / 15.49GiB   376MB / 132MB
+event-platform-tempo-1             0.17%     209.2MiB / 15.49GiB   129MB / 766kB
+event-platform-postgres-1          42.52%    132.2MiB / 15.49GiB   17GB / 70.2MB
+event-platform-prometheus-1        0.47%     53.09MiB / 15.49GiB   302kB / 2.53MB
+event-platform-redis-1             1.17%     8.211MiB / 15.49GiB   328MB / 148MB
