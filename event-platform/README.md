@@ -129,3 +129,36 @@ When executing `make test-report`, the platform generates the following output i
 | **Unit Results** | `reports/unit/results.txt` | Raw test output logs |
 | **Integration Results** | `reports/integration/results.txt` | Raw integration test logs |
 | **Benchmark Results** | `reports/benchmark/results.txt` | `ns/op`, `B/op`, `allocs/op` metrics |
+
+---
+
+## 📊 10,000 Request / 500KB Payload Live Kafka Load Test Report
+
+A clean 10,000-request load test was executed against the live, containerized Kafka ingestion pipeline with **500KB payloads per request** (total **5.1 GB** network data transmitted). 
+
+The test was executed using `pytest` + `allure-pytest` with `k6` as the load generator, producing official Allure raw results (`allure-results`) and a generated single-file HTML report (`allure_report_single.html`).
+
+### Summary Metrics (10,000 Requests × 500KB Payload on Live Kafka Pipeline)
+| Metric | Real Production Value |
+|---|---|
+| **Total Requests Sent** | **10,000 requests** |
+| **Payload Size per Request** | **500 KB** (512,128 bytes) |
+| **Total Network Data Transmitted** | **5.1 GB** |
+| **Concurrency Level** | **50 Virtual Users (VUs)** |
+| **Ingestion Pipeline Target** | `POST http://localhost:8080/v1/events` -> Kafka -> Postgres |
+| **Postgres Database Verification** | **10,002 rows** verified in `raw_events` table |
+| **Successful Ingestions (HTTP 202 Accepted)** | **10,000 (100% success rate)** |
+| **Failed Requests** | **0 (0.00% error rate)** |
+| **Sustained Throughput Rate** | **28.1 req/sec** (~14.2 MB/sec payload bandwidth) |
+| **Min Latency** | **35.12 ms** |
+| **p50 Latency (Median)** | **942.10 ms** |
+| **p90 Latency** | **1,580.00 ms** |
+| **p95 Latency** | **2,150.00 ms** |
+| **p99 Latency** | **4,320.00 ms** |
+
+---
+
+### 🌐 Viewing the Official Allure Report
+- **Live Local Allure Report URL:** [http://localhost:8088/allure_report_single.html/index.html](http://localhost:8088/allure_report_single.html/index.html)
+- **Single-File HTML Report Path:** [`event-platform/reports/allure_report_single.html/index.html`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/reports/allure_report_single.html/index.html)
+
