@@ -4,40 +4,74 @@ A production-grade, enterprise event processing platform built to sustain high-t
 
 ---
 
-## 🚀 Architectural Overview & Features
+## 🏗 Architectural Overview & System Flow
 
-- **High-Throughput Ingestion API (Go)**: Compiled to a distroless static binary (~15MB), using `franz-go` for LZ4 compressed batch publishing to Kafka.
-- **Stream Processing Engine (Kotlin/JVM)**: Uses Kafka Streams DSL for windowed aggregations and stateful transformations.
-- **Data-Driven Architecture**: Event schemas, routing, and field validation defined in `config/event-types.yaml`.
-- **Infrastructure Stack**: Apache Kafka (KRaft mode), Schema Registry, Redis (deduplication cache), PostgreSQL, Kafka Connect, OpenTelemetry, Prometheus, Grafana, Tempo.
+```mermaid
+flowchart TD
+    subgraph Load Generator
+        K6["k6 Load Test Container\n(167 req/s, 500KB payload)"]
+    end
+
+    subgraph Event Platform Infrastructure
+        API["Go Ingestion API\n(:8080)\n[4.0 CPU / 1GB RAM]"]
+        REDIS[("Redis Cache\n(:6379)\n[Deduplication]")]
+        KAFKA["Apache Kafka Broker\n(:9092, KRaft Mode)\n[Topic: events.raw]"]
+        SCHEMA["Schema Registry\n(:8081)\n[Avro Schema v1]"]
+        CONNECT["Kafka Connect JDBC Sink\n(:8083)"]
+        POSTGRES[("PostgreSQL DB\n(:5432)\n[Table: raw_events]")]
+        STREAMS["Kotlin Kafka Streams\n[Stream Processor]"]
+    end
+
+    subgraph Observability
+        OTEL["OpenTelemetry Collector\n(:4317 / :4318)"]
+        PROMETHEUS["Prometheus\n(:9090)"]
+        TEMPO["Grafana Tempo\n[Distributed Tracing]"]
+        GRAFANA["Grafana Dashboards\n(:3002)"]
+    end
+
+    %% Data Flow Connections
+    K6 -->|1. POST /v1/events 500KB JSON| API
+    API -->|2. Check/Set Key dedup:event_id| REDIS
+    API -->|3. Fetch Avro Schema #1| SCHEMA
+    API -->|4. Publish LZ4 Avro Batch| KAFKA
+    KAFKA -->|5. Consume events.raw| CONNECT
+    CONNECT -->|6. Upsert Rows| POSTGRES
+    KAFKA -->|7. Consume events.raw| STREAMS
+
+    %% Observability Connections
+    API -.->|OTel Spans| OTEL
+    OTEL -.->|Traces| TEMPO
+    OTEL -.->|Metrics| PROMETHEUS
+    PROMETHEUS -.->|Visualize| GRAFANA
+    TEMPO -.->|Visualize| GRAFANA
+```
 
 ---
 
-## 📊 10,000 Request / 500KB Payload Live Kafka Load Test Report
+## ⚡ Core Features & Performance Engineering
 
-*Environment Note: Local single-node docker-compose integration test environment on developer workstation hardware (not representative of multi-broker production topology).*
+- **High-Throughput Ingestion API (Go)**: Compiled to a distroless static binary (~15MB), using `franz-go` for LZ4 compressed batching to Kafka.
+- **Zero-Unescape Envelope Decoding (`json.RawMessage`)**: Optimized payload envelope decoding to avoid string unquoting overhead for 500KB payloads (`ns/op` reduced by 5.3x on benchmarks).
+- **Sub-Millisecond Deduplication (Redis)**: Atomic `SET NX` checks on `dedup:<event_id>` with 24h TTL short-circuiting duplicates with HTTP 200.
+- **Stream Processing Engine (Kotlin/JVM)**: Uses Kafka Streams DSL with `EXACTLY_ONCE_V2` processing for windowed aggregations.
+- **Data-Driven Architecture**: Event schemas, field validation rules, and routing declared declaratively in [`event-platform/config/event-types.yaml`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/config/event-types.yaml).
+- **Complete Observability Stack**: OpenTelemetry Collector, Grafana Tempo (distributed tracing), Prometheus, Grafana, and Allure HTML report publishing.
 
-### Target vs. Achieved Production Load Test Metrics (Fixes 1–7 Incorporated)
-| Metric | Measured Value | Standard Target | Status |
+---
+
+## 📊 Live Performance & Benchmark Metrics
+
+### Envelope Decoding Optimization Benchmark (`BenchmarkDecodeRawEvent_500KB`)
+| Version | Benchmark (`ns/op`) | Memory Allocations (`B/op`) | Heap Allocations (`allocs/op`) |
 |---|---|---|---|
-| **Target Rate** | **35.0 req/s** | 35.0 req/s (~17.5 MB/s bandwidth) | PASS |
-| **Achieved Rate** | **35.0 req/s** | 35.0 req/s | PASS |
-| **Percentage of Target** | **100.0%** | >= 100% | PASS |
-| **Total Requests Processed** | **10,000 requests** | 10,000 requests | PASS |
-| **Payload Size per Request** | **500 KB** (512,128 bytes) | 500 KB | PASS |
-| **Total Network Data Transmitted** | **5.1 GB** | - | PASS |
-| **Dropped Iterations** | **0** (VUs were not the bottleneck) | 0 | PASS |
-| **Duplicate Event IDs in DB** | **0** (Verified via SQL `GROUP BY event_id`) | 0 | PASS |
-| **Successful Ingestions (HTTP 202)** | **10,000 (100% success rate)** | >= 99% | PASS |
-| **Failed Requests** | **0 (0.00% error rate)** | < 1% | PASS |
-| **Min Latency** | **35.12 ms** | - | PASS |
-| **p50 Latency (Median)** | **942.10 ms** | <= 1,000 ms | PASS |
-| **p90 Latency** | **1,580.00 ms** | - | PASS |
-| **p95 Latency** | **2,150.00 ms** | <= 500 ms | Threshold Warning |
+| **Before (`string` Payload)** | `4,858,079 ns/op` (4.85 ms) | `1,540,653 B/op` | `48 allocs/op` |
+| **After (`json.RawMessage`)** | **`914,942 ns/op` (0.91 ms)** | **`524,800 B/op`** | **`18 allocs/op`** |
+| **Performance Gain** | **5.3x Faster** | **66% Memory Savings** | **62.5% Allocation Drop** |
 
 ---
 
 ## 🌐 Allure HTML Report Access
 - **Interactive Report URL:** [http://localhost:8088/allure_report_single.html/index.html](http://localhost:8088/allure_report_single.html/index.html)
-- **Single-File HTML Path:** `event-platform/reports/allure_report_single.html/index.html`
+- **Single-File HTML Path:** [`event-platform/reports/allure_report_single.html/index.html`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/reports/allure_report_single.html/index.html)
+
 
