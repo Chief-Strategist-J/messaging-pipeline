@@ -1,28 +1,28 @@
 File: ingestion-api
 Type: cpu
-Time: Aug 8, 2026 at 1:17pm (UTC)
-Duration: 30s, Total samples = 13.25s (44.17%)
-Showing nodes accounting for 8.44s, 63.70% of 13.25s total
-Dropped 277 nodes (cum <= 0.07s)
-Showing top 20 nodes out of 140
+Time: Aug 8, 2026 at 1:27pm (UTC)
+Duration: 30s, Total samples = 6.82s (22.73%)
+Showing nodes accounting for 3.03s, 44.43% of 6.82s total
+Dropped 210 nodes (cum <= 0.03s)
+Showing top 20 nodes out of 169
       flat  flat%   sum%        cum   cum%
-         0     0%     0%     10.52s 79.40%  net/http.(*conn).serve
-         0     0%     0%     10.32s 77.89%  net/http.(*ServeMux).ServeHTTP
-         0     0%     0%     10.32s 77.89%  net/http.serverHandler.ServeHTTP
-         0     0%     0%     10.31s 77.81%  event-platform/ingestion-api/internal/httpapi.(*Handler).ServeHTTP
-         0     0%     0%     10.31s 77.81%  event-platform/ingestion-api/internal/httpapi.WithTracing.func1
-         0     0%     0%     10.31s 77.81%  main.main.WithRateLimit.func4
-         0     0%     0%     10.31s 77.81%  net/http.HandlerFunc.ServeHTTP
-         0     0%     0%      5.48s 41.36%  encoding/json.Valid
-     3.26s 24.60% 24.60%      5.47s 41.28%  encoding/json.checkValid
-     2.40s 18.11% 42.72%      2.40s 18.11%  runtime.memmove
-     1.40s 10.57% 53.28%      1.64s 12.38%  encoding/json.stateInString
-         0     0% 53.28%      1.62s 12.23%  github.com/buger/jsonparser.Get (inline)
-         0     0% 53.28%      1.62s 12.23%  github.com/buger/jsonparser.internalGet
-         0     0% 53.28%      1.61s 12.15%  github.com/buger/jsonparser.blockEnd
-         0     0% 53.28%      1.61s 12.15%  github.com/buger/jsonparser.getType
-     1.38s 10.42% 63.70%      1.61s 12.15%  github.com/buger/jsonparser.stringEnd (inline)
-         0     0% 63.70%      1.54s 11.62%  github.com/twmb/franz-go/pkg/kgo.(*broker).handleReq
-         0     0% 63.70%      1.54s 11.62%  github.com/twmb/franz-go/pkg/kgo.(*broker).handleReqs
-         0     0% 63.70%      1.54s 11.62%  github.com/twmb/franz-go/pkg/kgo.(*brokerCxn).writeRequest
-         0     0% 63.70%      1.54s 11.62%  github.com/twmb/franz-go/pkg/kgo.(*produceRequest).AppendTo
+         0     0%     0%      4.18s 61.29%  net/http.(*conn).serve
+     0.01s  0.15%  0.15%      4.01s 58.80%  event-platform/ingestion-api/internal/httpapi.(*Handler).ServeHTTP
+         0     0%  0.15%      4.01s 58.80%  event-platform/ingestion-api/internal/httpapi.WithTracing.func1
+         0     0%  0.15%      4.01s 58.80%  main.main.WithRateLimit.func4
+         0     0%  0.15%      4.01s 58.80%  net/http.(*ServeMux).ServeHTTP
+         0     0%  0.15%      4.01s 58.80%  net/http.HandlerFunc.ServeHTTP
+         0     0%  0.15%      4.01s 58.80%  net/http.serverHandler.ServeHTTP
+     1.74s 25.51% 25.66%      1.74s 25.51%  runtime.memmove
+         0     0% 25.66%      1.59s 23.31%  runtime.systemstack
+         0     0% 25.66%      1.50s 21.99%  github.com/buger/jsonparser.Get (inline)
+         0     0% 25.66%      1.50s 21.99%  github.com/buger/jsonparser.internalGet
+     1.28s 18.77% 44.43%      1.50s 21.99%  github.com/buger/jsonparser.stringEnd (inline)
+         0     0% 44.43%      1.49s 21.85%  github.com/buger/jsonparser.blockEnd
+         0     0% 44.43%      1.49s 21.85%  github.com/buger/jsonparser.getType
+         0     0% 44.43%      1.37s 20.09%  github.com/twmb/franz-go/pkg/kgo.(*broker).handleReq
+         0     0% 44.43%      1.37s 20.09%  github.com/twmb/franz-go/pkg/kgo.(*broker).handleReqs
+         0     0% 44.43%      1.36s 19.94%  github.com/twmb/franz-go/pkg/kgo.(*brokerCxn).writeRequest
+         0     0% 44.43%      1.35s 19.79%  github.com/twmb/franz-go/pkg/kgo.(*produceRequest).AppendTo
+         0     0% 44.43%      1.35s 19.79%  github.com/twmb/franz-go/pkg/kgo.seqRecBatch.appendTo
+         0     0% 44.43%      1.35s 19.79%  github.com/twmb/franz-go/pkg/kmsg.(*RequestFormatter).AppendRequest
