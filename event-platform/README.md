@@ -119,8 +119,13 @@ make test-load
 ## 📊 Summary of Generated Test Artifacts
 
 When executing `make test-report`, the platform generates the following output in `reports/`:
-- **`reports/report.html`**: Executive dashboard with pass/fail ratios, unit test breakdown, integration status, benchmark metrics table, and code coverage bar.
-- **`reports/unit/coverage.html`**: Interactive Go coverage document detailing statement execution across internal packages.
-- **`reports/unit/results.txt`**: Detailed test logs for unit tests.
-- **`reports/integration/results.txt`**: Execution logs for integration scenarios.
-- **`reports/benchmark/results.txt`**: Performance statistics (`ns/op`, `B/op`, `allocs/op`).
+
+| Report | Path | Description |
+|---|---|---|
+| **Allure Results** | `reports/allure-results/` | Raw JSON results for Allure Framework |
+| **Allure HTML Report** | `reports/allure-report/` | Standalone interactive Allure Test Report |
+| **Consolidated Summary** | `reports/report.html` | HTML dashboard with pass/fail/skip counts, coverage bar, benchmark table |
+| **Coverage Report** | `reports/unit/coverage.html` | Go HTML coverage report with line-by-line highlighting |
+| **Unit Results** | `reports/unit/results.txt` | Raw test output logs |
+| **Integration Results** | `reports/integration/results.txt` | Raw integration test logs |
+| **Benchmark Results** | `reports/benchmark/results.txt` | `ns/op`, `B/op`, `allocs/op` metrics |

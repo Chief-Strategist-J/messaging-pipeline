@@ -19,6 +19,7 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("io.qameta.allure:allure-junit5:2.25.0")
 }
 
 tasks.test {

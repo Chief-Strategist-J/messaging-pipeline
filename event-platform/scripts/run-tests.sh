@@ -5,12 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GO_SERVICE="$PROJECT_ROOT/services/ingestion-api"
 REPORTS_DIR="$PROJECT_ROOT/reports"
+ALLURE_RESULTS_DIR="$REPORTS_DIR/allure-results"
+ALLURE_REPORT_DIR="$REPORTS_DIR/allure-report"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 DATE_DISPLAY=$(date -u +"%B %d, %Y %H:%M UTC")
 
 mkdir -p "$REPORTS_DIR/unit"
 mkdir -p "$REPORTS_DIR/integration"
 mkdir -p "$REPORTS_DIR/benchmark"
+mkdir -p "$ALLURE_RESULTS_DIR"
+mkdir -p "$ALLURE_REPORT_DIR"
 
 UNIT_PASS=0
 UNIT_FAIL=0
@@ -47,9 +51,9 @@ run_unit_tests() {
     echo "$UNIT_RAW"
     echo "$UNIT_RAW" > "$REPORTS_DIR/unit/results.txt"
 
-    UNIT_PASS=$(echo "$UNIT_RAW" | grep -c "--- PASS:" || true)
-    UNIT_FAIL=$(echo "$UNIT_RAW" | grep -c "--- FAIL:" || true)
-    UNIT_SKIP=$(echo "$UNIT_RAW" | grep -c "--- SKIP:" || true)
+    UNIT_PASS=$(grep -c "--- PASS:" "$REPORTS_DIR/unit/results.txt" || echo "0")
+    UNIT_FAIL=$(grep -c "--- FAIL:" "$REPORTS_DIR/unit/results.txt" || echo "0")
+    UNIT_SKIP=$(grep -c "--- SKIP:" "$REPORTS_DIR/unit/results.txt" || echo "0")
     UNIT_TOTAL=$((UNIT_PASS + UNIT_FAIL + UNIT_SKIP))
 
     if [ -f "$REPORTS_DIR/unit/coverage.out" ]; then
@@ -84,9 +88,9 @@ run_integration_tests() {
     echo "$INTEG_RAW"
     echo "$INTEG_RAW" > "$REPORTS_DIR/integration/results.txt"
 
-    INTEG_PASS=$(echo "$INTEG_RAW" | grep -c "--- PASS:" || true)
-    INTEG_FAIL=$(echo "$INTEG_RAW" | grep -c "--- FAIL:" || true)
-    INTEG_SKIP=$(echo "$INTEG_RAW" | grep -c "--- SKIP:" || true)
+    INTEG_PASS=$(grep -c "--- PASS:" "$REPORTS_DIR/integration/results.txt" || echo "0")
+    INTEG_FAIL=$(grep -c "--- FAIL:" "$REPORTS_DIR/integration/results.txt" || echo "0")
+    INTEG_SKIP=$(grep -c "--- SKIP:" "$REPORTS_DIR/integration/results.txt" || echo "0")
     INTEG_TOTAL=$((INTEG_PASS + INTEG_FAIL + INTEG_SKIP))
 
     if [ "$exit_code" -ne 0 ]; then
@@ -153,10 +157,13 @@ generate_html_report() {
 
     local UNIT_TEST_ROWS=""
     while IFS= read -r line; do
-        if echo "$line" | grep -qE '--- (PASS|FAIL|SKIP):'; then
-            local status=$(echo "$line" | grep -oE '(PASS|FAIL|SKIP)')
+        if echo "$line" | grep -q '--- PASS:\|--- FAIL:\|--- SKIP:'; then
+            local status=""
+            if echo "$line" | grep -q '--- PASS:'; then status="PASS"; fi
+            if echo "$line" | grep -q '--- FAIL:'; then status="FAIL"; fi
+            if echo "$line" | grep -q '--- SKIP:'; then status="SKIP"; fi
             local test_name=$(echo "$line" | sed 's/.*--- [A-Z]*: //' | awk '{print $1}')
-            local duration=$(echo "$line" | grep -oE '\([0-9.]+s\)' || echo "(0.00s)")
+            local duration=$(echo "$line" | grep -o '([0-9.]*s)' || echo "(0.00s)")
             local row_color="#22c55e"
             if [ "$status" = "FAIL" ]; then row_color="#ef4444"; fi
             if [ "$status" = "SKIP" ]; then row_color="#f59e0b"; fi
@@ -166,10 +173,13 @@ generate_html_report() {
 
     local INTEG_TEST_ROWS=""
     while IFS= read -r line; do
-        if echo "$line" | grep -qE '--- (PASS|FAIL|SKIP):'; then
-            local status=$(echo "$line" | grep -oE '(PASS|FAIL|SKIP)')
+        if echo "$line" | grep -q '--- PASS:\|--- FAIL:\|--- SKIP:'; then
+            local status=""
+            if echo "$line" | grep -q '--- PASS:'; then status="PASS"; fi
+            if echo "$line" | grep -q '--- FAIL:'; then status="FAIL"; fi
+            if echo "$line" | grep -q '--- SKIP:'; then status="SKIP"; fi
             local test_name=$(echo "$line" | sed 's/.*--- [A-Z]*: //' | awk '{print $1}')
-            local duration=$(echo "$line" | grep -oE '\([0-9.]+s\)' || echo "(0.00s)")
+            local duration=$(echo "$line" | grep -o '([0-9.]*s)' || echo "(0.00s)")
             local row_color="#22c55e"
             if [ "$status" = "FAIL" ]; then row_color="#ef4444"; fi
             if [ "$status" = "SKIP" ]; then row_color="#f59e0b"; fi

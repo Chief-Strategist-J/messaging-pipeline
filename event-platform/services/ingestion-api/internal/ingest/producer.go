@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"log"
 
 	"event-platform/ingestion-api/internal/constants"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -35,11 +36,16 @@ func NewKafkaProducer(brokers []string, schemaID uint32) (Producer, error) {
 func (p *kafkaProducer) Produce(ctx context.Context, topic string, evt RawEvent) error {
 	avroBytes, err := encodeAvro(evt, p.schemaID)
 	if err != nil {
+		log.Printf("avro encoding error: %v", err)
 		return err
 	}
 	record := &kgo.Record{Topic: topic, Key: []byte(evt.EventID), Value: avroBytes}
 	res := p.client.ProduceSync(ctx, record)
-	return res.FirstErr()
+	if err := res.FirstErr(); err != nil {
+		log.Printf("kafka produce sync error: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (p *kafkaProducer) Close() { p.client.Close() }
