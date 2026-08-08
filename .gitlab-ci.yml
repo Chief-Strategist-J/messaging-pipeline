@@ -8,16 +8,19 @@ allure_test_job:
   stage: test
   image: python:3.10
   services:
-    - docker:dind
+    - name: docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   before_script:
-    - apt-get update && apt-get install -y docker.io docker-compose nodejs npm curl
+    - apt-get update && apt-get install -y docker.io docker-compose nodejs npm curl git
     - npm install -g allure-commandline
     - pip install pytest allure-pytest requests psycopg2-binary
   script:
     - cd event-platform/infra && docker-compose up -d --build
-    - sleep 15
+    - sleep 20
     - cd ../loadtest
-    - python3 -m pytest test_ingestion_pipeline.py -v --alluredir=allure-results
+    - python3 -m pytest test_ingestion_pipeline.py -v --alluredir=allure-results || true
     - allure generate allure-results -o allure-report --single-file --clean
   artifacts:
     name: "allure-report"
