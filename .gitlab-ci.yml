@@ -1,0 +1,32 @@
+default:
+  image: ubuntu:22.04
+
+stages:
+  - test
+  - report
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+allure_test_job:
+  stage: test
+  image: python:3.10
+  services:
+    - docker:dind
+  before_script:
+    - apt-get update && apt-get install -y docker.io docker-compose nodejs npm curl
+    - npm install -g allure-commandline
+    - pip install pytest allure-pytest requests psycopg2-binary
+  script:
+    - cd event-platform/infra && docker-compose up -d --build
+    - sleep 15
+    - cd ../loadtest
+    - python3 -m pytest test_ingestion_pipeline.py -v --alluredir=allure-results
+    - allure generate allure-results -o allure-report --single-file --clean
+  artifacts:
+    name: "allure-report-$CI_COMMIT_REF_SLUG"
+    when: always"
+    paths:
+      - event-platform/loadtest/allure-report/index.html
+      - event-platform/loadtest/allure-results/
+    expire_in: 30 days

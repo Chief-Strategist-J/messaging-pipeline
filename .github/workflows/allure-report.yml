@@ -1,0 +1,68 @@
+name: Allure Test Report Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  allure-report:
+    name: Run Integration & Load Tests with Allure Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest allure-pytest requests psycopg2-binary
+
+      - name: Install Allure CLI & Node Dependencies
+        run: |
+          npm install -g allure-commandline http-server
+
+      - name: Start Event Platform Stack (Kafka, Postgres, Redis, Ingestion API)
+        run: |
+          cd event-platform/infra
+          docker compose up -d --build
+          # Wait for services to become healthy
+          docker compose exec -T postgres sh -c "until pg_isready -U app; do sleep 2; done"
+          docker compose exec -T ingestion-api sh -c "until curl -s http://localhost:8080/healthz; do sleep 2; done"
+
+      - name: Run Pytest Integration & Load Test Suite
+        env:
+          INGESTION_API_URL: "http://localhost:8080"
+          PG_DSN: "dbname=app user=app password=app host=localhost port=5432"
+        run: |
+          cd event-platform/loadtest
+          python -m pytest test_ingestion_pipeline.py -v --alluredir=allure-results
+
+      - name: Generate Allure Single-File HTML Report
+        if: always()
+        run: |
+          cd event-platform/loadtest
+          allure generate allure-results -o allure-report --single-file --clean
+
+      - name: Upload Allure HTML Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-html-report
+          path: event-platform/loadtest/allure-report/index.html
+          retention-days: 30
+
+      - name: Deploy Allure Report to GitHub Pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: event-platform/loadtest/allure-report
