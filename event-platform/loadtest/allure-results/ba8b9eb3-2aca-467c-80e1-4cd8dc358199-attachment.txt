@@ -1,0 +1,11 @@
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-ingestion-api-1     0.01%     45.46MiB / 256MiB     103MB / 3.65MB
+event-platform-connect-1           10.17%    1.281GiB / 15.49GiB   257MB / 571MB
+event-platform-kafka-1             160.96%   992.3MiB / 15.49GiB   268MB / 256MB
+event-platform-grafana-1           0.74%     127.2MiB / 15.49GiB   23.3MB / 8.01MB
+event-platform-schema-registry-1   0.46%     249.5MiB / 15.49GiB   2.1MB / 1.88MB
+event-platform-otel-collector-1    0.02%     21.27MiB / 15.49GiB   370MB / 129MB
+event-platform-tempo-1             0.25%     202.6MiB / 15.49GiB   127MB / 706kB
+event-platform-postgres-1          0.75%     207.2MiB / 15.49GiB   519MB / 54.9MB
+event-platform-prometheus-1        0.55%     55.54MiB / 15.49GiB   276kB / 2.48MB
+event-platform-redis-1             0.73%     7.559MiB / 15.49GiB   321MB / 145MB
