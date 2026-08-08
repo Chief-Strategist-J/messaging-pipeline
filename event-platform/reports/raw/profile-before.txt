@@ -1,0 +1,28 @@
+File: ingestion-api
+Type: cpu
+Time: Aug 8, 2026 at 12:07pm (UTC)
+Duration: 30.16s, Total samples = 29.95s (99.29%)
+Showing nodes accounting for 24.58s, 82.07% of 29.95s total
+Dropped 282 nodes (cum <= 0.15s)
+Showing top 20 nodes out of 101
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     27.72s 92.55%  net/http.(*conn).serve
+         0     0%     0%     27.53s 91.92%  net/http.(*ServeMux).ServeHTTP
+         0     0%     0%     27.53s 91.92%  net/http.serverHandler.ServeHTTP
+         0     0%     0%     27.52s 91.89%  event-platform/ingestion-api/internal/httpapi.(*Handler).ServeHTTP
+         0     0%     0%     27.52s 91.89%  event-platform/ingestion-api/internal/httpapi.WithTracing.func1
+         0     0%     0%     27.52s 91.89%  main.main.WithRateLimit.func4
+         0     0%     0%     27.52s 91.89%  net/http.HandlerFunc.ServeHTTP
+         0     0%     0%     15.10s 50.42%  encoding/json.(*Decoder).Decode
+     0.01s 0.033% 0.033%     11.57s 38.63%  event-platform/ingestion-api/internal/eventtypes.ValidatePayload
+         0     0% 0.033%     11.27s 37.63%  encoding/json.Unmarshal
+         0     0% 0.033%     10.58s 35.33%  encoding/json.(*decodeState).object
+         0     0% 0.033%     10.58s 35.33%  encoding/json.(*decodeState).unmarshal
+         0     0% 0.033%     10.58s 35.33%  encoding/json.(*decodeState).value
+     5.15s 17.20% 17.23%      8.95s 29.88%  encoding/json.(*Decoder).readValue
+         0     0% 17.23%      7.81s 26.08%  encoding/json.(*decodeState).literalStore
+     6.23s 20.80% 38.03%      7.07s 23.61%  encoding/json.unquoteBytes
+     4.25s 14.19% 52.22%      6.84s 22.84%  encoding/json.checkValid
+     4.19s 13.99% 66.21%      4.65s 15.53%  encoding/json.stateInString
+     2.42s  8.08% 74.29%      2.68s  8.95%  encoding/json.(*decodeState).rescanLiteral
+     2.33s  7.78% 82.07%      2.33s  7.78%  runtime.asyncPreempt

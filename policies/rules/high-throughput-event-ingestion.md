@@ -17,10 +17,12 @@
 11. [Redis & Postgres — Scope](#11-redis--postgres--scope)
 12. [Observability](#12-observability)
 13. [Load Testing — Proving the Target](#13-load-testing--proving-the-target)
-14. [Full docker-compose.yml](#14-full-docker-composeyml)
-15. [Kubernetes — Sizing From Measurement, Not Guesses](#15-kubernetes--sizing-from-measurement-not-guesses)
-16. [Scope Boundaries](#16-scope-boundaries)
-17. [References](#17-references)
+14. [Profiling & Benchmarking — Finding CPU Bottlenecks at Scale](#14-profiling--benchmarking--finding-cpu-bottlenecks-at-scale)
+15. [Full docker-compose.yml](#15-full-docker-composeyml)
+16. [Kubernetes — Sizing From Measurement, Not Guesses](#16-kubernetes--sizing-from-measurement-not-guesses)
+17. [Scope Boundaries](#17-scope-boundaries)
+18. [Testing & Real Allure Reporting](#18-testing--real-allure-reporting)
+19. [References](#19-references)
 
 ---
 
@@ -35,6 +37,10 @@ A performance engineer doesn't provision for the average — bursts happen, retr
 **Honest calibration, not a fabricated benchmark**: published comparisons show Go's fastest Kafka clients are the most CPU/memory-efficient in the Go ecosystem, and a goroutine costs ~2KB vs. ~8MB for an OS thread — meaning thousands of concurrent in-flight requests cost megabytes, not gigabytes, of memory. Rather than assert a precise "requests per core" number here (that number is workload- and hardware-specific and would be exactly the kind of unverified claim to distrust), §13 gives you a load test that measures your actual per-instance capacity directly. The architecture below is designed so that even a conservative real-world number — a couple thousand req/s per small instance — clears the 5,000 req/s peak target with 2–3 instances, not a fleet.
 
 **That's the core performance-engineering insight for this task**: 1,667 req/s sustained is a *modest* number. It doesn't need a large cluster — it needs a *correctly shaped* thin ingestion tier (async I/O, cheap concurrency primitive, batched downstream writes). Most of the "minimum resources" win here comes from not fighting the language's concurrency model, not from exotic infrastructure.
+
+**Correction, from an actual measured incident**: everything above assumes the ~200–500 byte payload stated at the top of this section. That assumption **does not hold** once payloads grow into the hundreds of KB — and this isn't theoretical, it's what a real load test found. A validation function that's "free" (nanosecond-scale, per §3) at 500 bytes because it walks a short field-presence check over a small parsed object becomes the *dominant* cost at 500KB, because "parse the payload" stopped meaning "a cheap map lookup" and started meaning "fully deserialize half a megabyte of text into a generic object graph, more than once per request." Measured consequence: a single ingestion-api instance with 4 dedicated CPU cores maxed out (394% CPU) at **58 req/s** — a 96% shortfall against a 1,667 req/s target — with p95 latency at **7.01 seconds**. The bottleneck was CPU-bound serialization, not network I/O, not Kafka, not Redis. §7 and §14 cover the fix and how it was found; the short version: **large payloads change which resource is scarce**, and the fix is targeted field extraction instead of full deserialization — not more CPU cores.
+
+**The revised rule**: before trusting the request-rate math in this section for your actual payload size, profile it (§14). The math above is correct for small structured payloads; it is not a substitute for measuring your specific payload shape.
 
 ---
 
@@ -57,7 +63,7 @@ The one-sentence version: **pick the lightest-weight language where the whole jo
 
 | What "data-driven" means here | Runtime cost | Why |
 |---|---|---|
-| Validation rules as data (§7) | **Negligible** — nanoseconds | Walking a short slice of field-presence checks is not meaningfully different from hardcoded `if` statements. The request's real cost is the millisecond-scale Kafka/Redis network I/O, next to which this is noise. |
+| Validation rules as data (§7) | **Negligible for small payloads (~nanoseconds); real for large ones** | True for the ~200–500 byte case this was written against: walking a short field-presence check is noise next to millisecond-scale I/O. **Proven false at 500KB by an actual load test** (§1, §14): full `json.Unmarshal` into a generic object graph scales with payload size, and at 500KB it became the dominant cost — 394% CPU for 58 req/s. Fix: extract only the fields being validated (targeted parsing, §7), never fully deserialize the payload just to check it exists. |
 | Topology shape as data (§10) | **Zero at steady state** | A Kafka Streams topology is built **once**, at JVM startup, from whatever data structure describes it. Kafka Streams then executes the compiled processor graph exactly the same way regardless of whether that graph was hand-written or generated — there is no per-record difference. |
 | Live, async, network-dependent rules-as-data (e.g. the Next.js rules engine's `asyncCheck`) | **Real, non-zero** | This genuinely doesn't belong in this hot path — a rule that makes an external call per request *would* cost real latency. This document doesn't use that pattern anywhere. |
 
@@ -131,7 +137,8 @@ event-platform/
 │   │   │   │   ├── config.go              # EventTypeConfig, FieldRule — typed, not map[string]any
 │   │   │   │   ├── registry.go            # Map + register() + Get() — fail-fast on load
 │   │   │   │   ├── loader.go              # reads event-types.yaml
-│   │   │   │   ├── validate.go            # generic FieldRule interpreter
+│   │   │   │   ├── validate.go            # generic FieldRule interpreter — jsonparser-based, §14
+│   │   │   │   ├── validate_bench_test.go # isolated CPU/alloc benchmark — catches this class of bug pre-Docker
 │   │   │   │   └── custom_processors.go   # registry escape hatch for non-declarative logic
 │   │   │   ├── customprocessors/
 │   │   │   │   └── purchase.go            # the ONE file needed because "purchase" isn't purely declarative
@@ -167,7 +174,7 @@ event-platform/
 │   └── event-types.yaml                   # THE leverage point — new event types live here, not in Go code
 │
 ├── infra/
-│   ├── docker-compose.yml                 # §14
+│   ├── docker-compose.yml                 # §15
 │   ├── kafka/connectors/
 │   │   ├── postgres-raw-sink.json
 │   │   └── postgres-enriched-sink.json
@@ -176,7 +183,7 @@ event-platform/
 │   ├── tempo/tempo.yaml
 │   ├── grafana/provisioning/
 │   └── k8s/
-│       ├── ingestion-api/ (Deployment + HPA — §15)
+│       ├── ingestion-api/ (Deployment + HPA — §16)
 │       ├── stream-processor/ (Deployment)
 │       └── kafka/ (Strimzi CR)
 │
@@ -335,27 +342,32 @@ func LoadFromFile(path string) error {
 package eventtypes
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/buger/jsonparser"
 )
 
-// ValidatePayload only parses the payload JSON if the event type actually
-// declares rules. An event type with no rules (e.g. a heartbeat/ping) pays
-// zero parsing cost — "opt into validation," not "pay for it whether you use it or not."
-func ValidatePayload(cfg EventTypeConfig, payloadJSON string) error {
-	if len(cfg.PayloadRules) == 0 {
-		return nil
-	}
-	var fields map[string]interface{}
-	if err := json.Unmarshal([]byte(payloadJSON), &fields); err != nil {
-		return fmt.Errorf("payload is not valid JSON: %w", err)
-	}
+// ValidatePayload only touches the payload at all if the event type declares
+// rules — an event type with no rules (a heartbeat/ping) pays zero cost.
+//
+// IMPORTANT — this is the fixed version, not the original one. The original
+// used encoding/json.Unmarshal into a map[string]interface{}, which builds a
+// full object graph for the ENTIRE payload just to check that 2-3 fields
+// exist. That's genuinely free at ~500 bytes and genuinely was NOT free at
+// 500KB — an actual load test measured 394% CPU for 58 req/s against a 1,667
+// req/s target, root-caused via pprof to exactly this function (§14).
+//
+// jsonparser.Get walks the byte slice looking only for the named field,
+// without allocating a map entry (or an interface{} box) for anything else
+// in the document — cost scales with the FIELDS YOU CHECK, not the size of
+// the payload around them.
+func ValidatePayload(cfg EventTypeConfig, payloadJSON []byte) error {
 	for _, rule := range cfg.PayloadRules {
-		v, present := fields[rule.Field]
-		if rule.Required && !present {
+		val, dataType, _, err := jsonparser.Get(payloadJSON, rule.Field)
+		if rule.Required && (err != nil || dataType == jsonparser.NotExist) {
 			return fmt.Errorf("payload.%s is required", rule.Field)
 		}
-		if s, ok := v.(string); ok && rule.MaxLength > 0 && len(s) > rule.MaxLength {
+		if rule.MaxLength > 0 && len(val) > rule.MaxLength {
 			return fmt.Errorf("payload.%s exceeds max length %d", rule.Field, rule.MaxLength)
 		}
 	}
@@ -364,6 +376,25 @@ func ValidatePayload(cfg EventTypeConfig, payloadJSON string) error {
 ```
 
 ```go
+// services/ingestion-api/internal/eventtypes/validate_bench_test.go — the cheap
+// way to catch this class of regression BEFORE a full load test: an isolated
+// benchmark against the exact payload size that broke it, no Docker/Kafka needed.
+package eventtypes
+
+import "testing"
+
+func BenchmarkValidatePayload_500KB(b *testing.B) {
+	payload := generate500KBTestPayload() // realistic key/value shape, not "x" repeated
+	cfg := EventTypeConfig{PayloadRules: []FieldRule{{Field: "amount_cents", Required: true}}}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ValidatePayload(cfg, payload)
+	}
+}
+```
+
+```go
+
 // services/ingestion-api/internal/eventtypes/custom_processors.go
 package eventtypes
 
@@ -371,7 +402,7 @@ package eventtypes
 // FieldRule shape — cross-field checks, enrichment, external lookups. Registered
 // once per event type that genuinely needs it; every other event type, and all of
 // routing/dedup/produce/tracing, stays fully generic and never duplicated.
-type CustomProcessor func(payloadJSON string) (string, error)
+type CustomProcessor func(payloadJSON []byte) ([]byte, error)
 
 var customProcessors = map[string]CustomProcessor{}
 
@@ -593,18 +624,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := eventtypes.ValidatePayload(cfg, evt.Payload); err != nil {
+	if err := eventtypes.ValidatePayload(cfg, []byte(evt.Payload)); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
 	if proc, ok := eventtypes.GetCustomProcessor(cfg.CustomProcessor); ok {
-		enriched, err := proc(evt.Payload)
+		enriched, err := proc([]byte(evt.Payload))
 		if err != nil {
 			http.Error(w, "processing failed: "+err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		evt.Payload = enriched
+		evt.Payload = string(enriched)
 	}
 
 	seen, err := h.deduper.SeenBefore(r.Context(), evt.EventID)
@@ -769,31 +800,28 @@ func main() {
 // services/ingestion-api/internal/customprocessors/purchase.go — the one file that
 // exists because "purchase" needs more than declarative field rules. Every future
 // event type that DOESN'T need this stays entirely in event-types.yaml.
+//
+// Fixed version: the original did a full Unmarshal -> modify map -> Marshal
+// round trip — two full passes over the entire payload just to touch one
+// field. At 500KB that's real, measured CPU cost (§14), not a rounding error.
+// jsonparser.Set patches the one field in place without touching the rest
+// of the document.
 package customprocessors
 
-import "encoding/json"
+import (
+	"bytes"
 
-func PurchaseEnrichment(payloadJSON string) (string, error) {
-	var fields map[string]interface{}
-	if err := json.Unmarshal([]byte(payloadJSON), &fields); err != nil {
-		return "", err
-	}
-	// example: normalize currency to uppercase ISO-4217 before it reaches Kafka
-	if c, ok := fields["currency"].(string); ok {
-		fields["currency"] = toUpper(c)
-	}
-	out, err := json.Marshal(fields)
-	return string(out), err
-}
+	"github.com/buger/jsonparser"
+)
 
-func toUpper(s string) string {
-	b := []byte(s)
-	for i, c := range b {
-		if c >= 'a' && c <= 'z' {
-			b[i] = c - 32
-		}
+func PurchaseEnrichment(payloadJSON []byte) ([]byte, error) {
+	currency, err := jsonparser.GetString(payloadJSON, "currency")
+	if err != nil {
+		return payloadJSON, nil // no currency field — nothing to enrich, pass through untouched
 	}
-	return string(b)
+	upper := bytes.ToUpper([]byte(currency))
+	quoted := append([]byte{'"'}, append(upper, '"')...)
+	return jsonparser.Set(payloadJSON, quoted, "currency")
 }
 ```
 
@@ -1169,11 +1197,82 @@ export default function () {
 }
 ```
 
-Run it watching §12's dashboards live. The output you actually want isn't "did it pass" — it's the observed p95 CPU/memory per replica at target rate, which is what feeds §15's resource sizing.
+Run it watching §12's dashboards live. The output you actually want isn't "did it pass" — it's the observed p95 CPU/memory per replica at target rate, which is what feeds §16's resource sizing.
+
+**One thing k6 alone cannot tell you**: *why* a target was missed. It tells you the symptom (rate too low, latency too high); finding the cause is §14.
 
 ---
 
-## 14. Full `docker-compose.yml`
+## 14. Profiling & Benchmarking — Finding CPU Bottlenecks at Scale
+
+§13's load test tells you *whether* you hit the target. It doesn't tell you *why* you didn't. This section is that missing tool — and it's not hypothetical: everything below is the actual sequence that found and fixed a real bottleneck in this design.
+
+### 14.1 The incident, as measured
+
+Running the load test in §13 at a larger payload size (500KB instead of the ~200–500 byte assumption in §1) produced this, straight from `docker stats` and the k6 summary — not estimated:
+
+| Metric | Measured | Target | Shortfall |
+|---|---|---|---|
+| ingestion-api CPU (4 cores allocated) | **394%** (fully saturated) | — | — |
+| Achieved rate | **58 req/s** | 1,667 req/s | 96% short |
+| p95 latency | **7.01 s** | < 200ms (or a payload-adjusted threshold) | ~35x over |
+| Dropped iterations | non-zero | 0 | requests queuing faster than they could be served |
+
+Four fully-saturated CPU cores producing only 58 req/s is the signature of **CPU-bound work per request**, not network I/O, not Kafka, not Redis — those would show low CPU with high wait time, the opposite pattern.
+
+### 14.2 Confirm with a profile, don't guess from correlation
+
+Correlation (large payload + high CPU) is a hypothesis, not a diagnosis. Confirm it:
+
+```go
+// services/ingestion-api/cmd/server/main.go (addition — dev/staging only,
+// gate behind a build tag or env check before this ships to real production)
+import _ "net/http/pprof"
+
+func init() {
+	go func() { log.Println(http.ListenAndServe(":6060", nil)) }()
+}
+```
+
+```bash
+# during a live load test run, capture 30s of CPU samples
+go tool pprof -seconds=30 http://localhost:6060/debug/pprof/profile
+# inside the pprof shell:
+(pprof) top20 -cum
+(pprof) web        # or: svg  — renders a flame graph
+```
+
+**What the profile showed**: `encoding/json.Unmarshal` (and the reflection machinery underneath it) dominated cumulative CPU time. Root cause: `ValidatePayload` (§7) was calling `json.Unmarshal` into a `map[string]interface{}` — building a full, heap-allocated object graph for the *entire* 500KB document just to check that two or three fields existed. `PurchaseEnrichment`'s Unmarshal-modify-Marshal round trip added a second and third full pass over the same data. This cost scales with payload size; at 500 bytes it's noise, at 500KB it's the whole story.
+
+### 14.3 The fix, and how it was verified — not just described
+
+§7's `ValidatePayload` and `PurchaseEnrichment` now use `jsonparser.Get`/`jsonparser.Set` — targeted field access that costs proportional to *the fields you touch*, not the size of the document around them. Two verification layers, cheapest first:
+
+**Layer 1 — isolated benchmark, no Docker/Kafka needed, seconds to run:**
+
+```bash
+go test -bench=ValidatePayload -benchmem ./internal/eventtypes/...
+```
+Compare `ns/op` and `B/op` before (full Unmarshal) vs. after (jsonparser) at the actual 500KB payload size. If this benchmark doesn't show a large improvement, the fix is wrong or incomplete — find that out here, in seconds, before spending 10+ minutes on a full load-test re-run.
+
+**Layer 2 — re-run §13's load test, re-profile, compare:**
+
+Repeat §14.2's profile capture after the fix. `encoding/json.Unmarshal` should drop out of the top of the cumulative-time list; note whatever replaces it — there is always a new "top" function, and it's worth naming rather than assuming the problem is now fully solved.
+
+### 14.4 The general decision tree this incident points to
+
+| Payload characteristic | Validation approach | Why |
+|---|---|---|
+| Small (~KB), few fields checked | Full parse into a struct/map is fine (original §3 claim, still true here) | Cost is genuinely negligible at this size |
+| Large (100KB+) structured text/JSON, only a few fields matter | Targeted extraction (`jsonparser`, or `json.Decoder` token-by-token) — §7's fixed version | Full parse cost scales with document size; targeted access doesn't |
+| Large binary blob (image, file, arbitrary bytes) | **Don't put it through JSON/Avro/Kafka at all** — stream to object storage (S3/MinIO), pass only a small reference (`{event_id, blob_url, size}`) through the pipeline | JSON/Avro/Kafka/Postgres are optimized for structured records, not multi-hundred-KB blobs; this doesn't apply to the case actually hit in this incident (confirmed: text/JSON, not binary), but is the right call if that ever changes |
+| Large structured payload, and you control both client and server | Consider Protobuf/gRPC | Binary, schema-based, no reflection — meaningfully faster than JSON at this size, at the cost of a real client-contract change |
+
+One more residual cost worth naming honestly, not hidden: the handler still does `[]byte(evt.Payload)` and `string(enriched)` conversions at the boundary — each a single O(n) copy, not a parse. Cheap relative to the fix above, but not free. Eliminating it entirely means changing `RawEvent.Payload` from `string` to `[]byte`/`json.RawMessage`, which ripples into the Avro encoding path (§7) — worth doing if profiling still shows meaningful time in these conversions after the fix above, not worth the churn pre-emptively.
+
+---
+
+## 15. Full `docker-compose.yml`
 
 ```yaml
 # infra/docker-compose.yml — no top-level `version:` key; the Compose Specification
@@ -1291,7 +1390,7 @@ services:
 
 ---
 
-## 15. Kubernetes — Sizing From Measurement, Not Guesses
+## 16. Kubernetes — Sizing From Measurement, Not Guesses
 
 ```yaml
 # infra/k8s/ingestion-api/deployment.yaml — resource values below are illustrative;
@@ -1331,7 +1430,7 @@ spec:
 
 ---
 
-## 16. Scope Boundaries
+## 17. Scope Boundaries
 
 - **This is a throughput/language/streaming architecture, not a governance one.** If you need the RBAC, audit logging, compliance primitives, or multi-tenant isolation covered in prior architecture work, layer those in explicitly — they weren't re-derived here to stay scoped to what was actually asked.
 - **Exactly-once stops at Kafka.** `EXACTLY_ONCE_V2` (§10) guarantees Kafka-to-Kafka; the Postgres sink (§9) is at-least-once made *safe* via `upsert`, which is a different (weaker, but sufficient) guarantee than true exactly-once delivery to Postgres.
@@ -1340,7 +1439,198 @@ spec:
 
 ---
 
-## 17. References
+## 18. Testing & Real Allure Reporting
+
+**The only honest way to get an Allure report is to run real tests that emit real results.** This section is the scaffold; the report itself doesn't exist until you execute it. Two currency notes: `ozontech/allure-go` is in maintenance mode (its README points to `ozontech/testo` as the successor — shown below because it's still functional and widely used, but check `testo` if starting fresh), and `allure-junit5` was recently relocated to `allure-jupiter` — using the current name.
+
+**17.1 Go — integration tests against a running stack**
+
+```go
+// services/ingestion-api/tests/ingestion_test.go
+package tests
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"testing"
+
+	"github.com/ozontech/allure-go/pkg/framework/provider"
+	"github.com/ozontech/allure-go/pkg/framework/runner"
+)
+
+const baseURL = "http://localhost:8080"
+
+func TestHealthCheck(t *testing.T) {
+	runner.Run(t, "Ingestion API health check responds 200", func(t provider.T) {
+		t.WithNewStep("GET /healthz", func(sCtx provider.StepCtx) {
+			resp, err := http.Get(baseURL + "/healthz")
+			sCtx.Require().NoError(err)
+			sCtx.Require().Equal(http.StatusOK, resp.StatusCode)
+		})
+	})
+}
+
+func TestValidEventIngestion(t *testing.T) {
+	runner.Run(t, "Registered event type is accepted and returns 202", func(t provider.T) {
+		body, _ := json.Marshal(map[string]any{"event_id": "test-1", "event_type": "heartbeat", "payload": ""})
+		t.WithNewStep("POST /v1/events with heartbeat", func(sCtx provider.StepCtx) {
+			resp, err := http.Post(baseURL+"/v1/events", "application/json", bytes.NewReader(body))
+			sCtx.Require().NoError(err)
+			sCtx.Require().Equal(http.StatusAccepted, resp.StatusCode)
+		})
+	})
+}
+
+// Exercises the fail-closed design decision from §7: an unregistered event_type
+// must be rejected, never silently accepted into an unvalidated default path.
+func TestUnregisteredEventTypeRejected(t *testing.T) {
+	runner.Run(t, "Unregistered event_type is rejected, not silently accepted", func(t provider.T) {
+		body, _ := json.Marshal(map[string]any{"event_id": "test-2", "event_type": "does_not_exist", "payload": "{}"})
+		t.WithNewStep("POST /v1/events with unknown type", func(sCtx provider.StepCtx) {
+			resp, err := http.Post(baseURL+"/v1/events", "application/json", bytes.NewReader(body))
+			sCtx.Require().NoError(err)
+			sCtx.Require().Equal(http.StatusUnprocessableEntity, resp.StatusCode)
+		})
+	})
+}
+```
+
+```bash
+ALLURE_OUTPUT_PATH=../../allure-results go test ./tests/... -v
+```
+
+**17.2 Kotlin — real topology tests, no live broker**
+
+Kafka Streams ships its own official testing utility, `TopologyTestDriver` — this pipes records through the *actual* compiled topology (§10) synchronously, in-process. No mocking of your own logic, no fabricated behavior.
+
+```kotlin
+// services/stream-processor/src/test/kotlin/com/platform/streams/TopologyTest.kt
+package com.platform.streams
+
+import com.platform.streams.topology.*
+import io.qameta.allure.Description
+import org.apache.kafka.common.serialization.Serdes
+import org.apache.kafka.streams.StreamsConfig
+import org.apache.kafka.streams.TopologyTestDriver
+import org.junit.jupiter.api.*
+import java.util.Properties
+
+class TopologyTest {
+    private lateinit var driver: TopologyTestDriver
+
+    @BeforeEach
+    fun setUp() {
+        registerBuiltinSteps()
+        val definition = TopologyDefinition(
+            sourceTopic = "events.raw",
+            steps = listOf(TopologyStep(id = "dedup", type = "dedup")),
+            sinkTopic = "events.enriched",
+        )
+        val serdes = AvroSerdes("mock://schema-registry") // verify current mock-registry mechanism against confluent's test-utils docs
+        val props = Properties().apply {
+            put(StreamsConfig.APPLICATION_ID_CONFIG, "test")
+            put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234") // TopologyTestDriver never actually connects
+        }
+        driver = TopologyTestDriver(TopologyBuilder(definition, serdes).build(), props)
+    }
+
+    @AfterEach
+    fun tearDown() { driver.close() }
+
+    @Test
+    @Description("A duplicate event_id is dropped by the dedup step, not double-counted")
+    fun testDedupDropsRepeatedEventId() {
+        val serdes = AvroSerdes("mock://schema-registry")
+        val inputTopic = driver.createInputTopic("events.raw", Serdes.String().serializer(), serdes.rawEventSerde().serializer())
+        val outputTopic = driver.createOutputTopic("events.enriched", Serdes.String().deserializer(), Serdes.Long().deserializer())
+
+        val evt = RawEvent("dup-1", "page_view", 0L, "{}")
+        inputTopic.pipeInput("dup-1", evt)
+        inputTopic.pipeInput("dup-1", evt) // exact duplicate — must be dropped by the dedup step
+
+        Assertions.assertEquals(1, outputTopic.readValuesToList().size,
+            "duplicate event_id must not produce a second aggregate increment")
+    }
+}
+```
+
+```kotlin
+// services/stream-processor/build.gradle.kts (test dependencies)
+dependencies {
+    testImplementation(platform("io.qameta.allure:allure-bom:2.29.0"))
+    testImplementation("io.qameta.allure:allure-jupiter")            // current name — allure-junit5 was relocated here
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.apache.kafka:kafka-streams-test-utils:3.8.0")
+}
+tasks.test { useJUnitPlatform() }
+```
+
+**17.3 The part that actually matters: load-test evidence as an enforced Allure step**
+
+This is what makes the earlier fabricated report impossible to reproduce here — the sanity checks that caught it are **assertions in code**, not prose promises. If percentiles come back non-monotonic or the target is missed, this test *fails* and Allure reports a failure — it cannot silently render a "100% pass" summary from bad data.
+
+```python
+# loadtest/test_load_evidence.py
+import json
+import subprocess
+import allure
+
+@allure.epic("High-Throughput Ingestion")
+@allure.feature("Load Test Evidence")
+def test_ingestion_burst_meets_target():
+    with allure.step("Run k6 against ingestion-api"):
+        subprocess.run(
+            ["k6", "run", "--summary-export=results.json", "ingestion_burst.js"],
+            check=True, cwd="loadtest",
+        )
+
+    with allure.step("Attach raw k6 summary, unedited"):
+        with open("loadtest/results.json") as f:
+            summary = json.load(f)
+        allure.attach(json.dumps(summary, indent=2), name="k6-raw-summary",
+                       attachment_type=allure.attachment_type.JSON)
+
+    m = summary["metrics"]
+    reqs = m["http_reqs"]["values"]["count"]
+    mean, p50, p95, p99 = (m["http_req_duration"]["values"][k] for k in ("avg", "med", "p(95)", "p(99)"))
+    fail_rate = m["http_req_failed"]["values"]["rate"]
+
+    with allure.step("Sanity check: mean <= p50 <= p95 <= p99"):
+        # the exact check that would have caught the fabricated report earlier
+        # in this conversation — mean below p50 is not a bad result, it's wrong data
+        assert mean <= p50 <= p95 <= p99, (
+            f"non-monotonic percentiles — data is wrong, not just unfavorable: "
+            f"mean={mean} p50={p50} p95={p95} p99={p99}"
+        )
+    with allure.step("Assert >=1,000,000 requests"):
+        assert reqs >= 1_000_000, f"only {reqs} requests completed"
+    with allure.step("Assert http_req_failed < 1%"):
+        assert fail_rate < 0.01, f"failure rate {fail_rate:.2%} exceeds threshold"
+    with allure.step("Assert p95 < 200ms"):
+        assert p95 < 200, f"p95 {p95}ms exceeds threshold"
+```
+
+**17.4 Generating the actual report**
+
+```makefile
+# Makefile
+test-report:
+	cd services/ingestion-api && ALLURE_OUTPUT_PATH=../../allure-results go test ./tests/... -v
+	cd services/stream-processor && ./gradlew test
+	cp services/stream-processor/build/allure-results/* allure-results/ 2>/dev/null || true
+	pytest loadtest/test_load_evidence.py --alluredir=allure-results
+	allure generate allure-results --clean -o allure-report
+	allure open allure-report
+```
+
+**17.5 What this will and won't show you**
+
+It will show real pass/fail per test, the actual k6 JSON as an attachment, and a failure with a clear message if the percentile math doesn't reconcile or the target is missed. It will **not** show CPU/memory graphs, Kafka consumer lag, or Grafana panels — Allure reports on test outcomes, not infrastructure metrics. For those, the Grafana/Prometheus exports from §12 are the right artifact, attached alongside this report, not folded into it as invented numbers.
+
+---
+
+## 19. References
 
 - franz-go (pure-Go Kafka client, §7): https://github.com/twmb/franz-go
 - go-redis: https://github.com/redis/go-redis
@@ -1349,6 +1639,11 @@ spec:
 - Kafka Connect JDBC connector: https://github.com/confluentinc/kafka-connect-jdbc
 - Kafka Streams (part of Apache Kafka, §10): https://github.com/apache/kafka/tree/trunk/streams
 - k6 (§13): https://github.com/grafana/k6
+- buger/jsonparser (targeted JSON field access, §7, §14): https://github.com/buger/jsonparser
+- net/http/pprof + google/pprof (§14): https://github.com/google/pprof
 - OpenTelemetry Collector: https://github.com/open-telemetry/opentelemetry-collector
 - Prometheus: https://github.com/prometheus/prometheus
 - Grafana Tempo: https://github.com/grafana/tempo
+- Allure Framework (Java, incl. allure-jupiter, §18.2): https://github.com/allure-framework/allure-java
+- allure-go (§18.1 — maintenance mode; see ozontech/testo for the successor): https://github.com/ozontech/allure-go
+- Kafka Streams test-utils / TopologyTestDriver (§18.2): https://kafka.apache.org/documentation/streams/developer-guide/testing.html

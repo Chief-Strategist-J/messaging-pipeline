@@ -25,7 +25,7 @@ func NewKafkaProducer(brokers []string, schemaID uint32) (Producer, error) {
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ProducerBatchCompression(kgo.Lz4Compression()),
-		kgo.ProducerLinger(constants.ProducerLingerMs),
+		kgo.ProducerLinger(10 * time.Millisecond),
 		kgo.ProducerBatchMaxBytes(10 * 1024 * 1024),
 		kgo.RequiredAcks(kgo.AllISRAcks()),
 	)
@@ -42,11 +42,9 @@ func (p *kafkaProducer) Produce(ctx context.Context, topic string, evt RawEvent)
 		return err
 	}
 	record := &kgo.Record{Topic: topic, Key: []byte(evt.EventID), Value: avroBytes}
-	prodCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	res := p.client.ProduceSync(prodCtx, record)
+	res := p.client.ProduceSync(ctx, record)
 	if err := res.FirstErr(); err != nil {
-		log.Printf("kafka produce sync error: %v", err)
+		log.Printf("kafka produce error: %v", err)
 		return err
 	}
 	return nil

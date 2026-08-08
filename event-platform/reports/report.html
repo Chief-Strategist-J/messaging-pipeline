@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Platform — Test Report</title>
+<style>
+  :root { --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8; --accent: #3b82f6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  header { text-align: center; margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+  header .subtitle { color: var(--muted); font-size: 0.9rem; }
+  .status-badge { display: inline-block; padding: 0.5rem 1.5rem; border-radius: 9999px; font-weight: 700; font-size: 1.1rem; margin: 1rem 0; background: rgba(239,68,68,0.1); color: #ef4444; border: 2px solid #ef4444; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; text-align: center; }
+  .card .value { font-size: 2.5rem; font-weight: 700; }
+  .card .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+  section { margin-bottom: 3rem; }
+  section h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
+  th { background: #0f172a; padding: 0.75rem 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
+  tr:hover td { background: rgba(59,130,246,0.05); }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  .skip { color: #f59e0b; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+  .section-status { float: right; font-size: 0.85rem; font-weight: 600; }
+  .coverage-bar { height: 8px; background: var(--border); border-radius: 4px; margin-top: 0.5rem; overflow: hidden; }
+  .coverage-fill { height: 100%; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Event Platform — Test Report</h1>
+    <div class="subtitle">Generated: August 08, 2026 08:14 UTC</div>
+    <div class="status-badge">FAIL</div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="value" style="color:#22c55e">0</div>
+      <div class="label">Passed</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#ef4444">0</div>
+      <div class="label">Failed</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#f59e0b">0</div>
+      <div class="label">Skipped</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:var(--accent)">0</div>
+      <div class="label">Total Tests</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#ef4444">0.0%</div>
+      <div class="label">Code Coverage</div>
+      <div class="coverage-bar"><div class="coverage-fill" style="width:0.0%;background:#ef4444"></div></div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Unit Tests <span class="section-status" style="color:#ef4444">FAIL — 11ms</span></h2>
+    <table>
+      <thead><tr><th>Test Name</th><th>Status</th><th>Duration</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Integration Tests <span class="section-status" style="color:#ef4444">FAIL — 8ms</span></h2>
+    <table>
+      <thead><tr><th>Test Name</th><th>Status</th><th>Duration</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Benchmark Results</h2>
+    <table>
+      <thead><tr><th>Benchmark</th><th>Iterations</th><th>ns/op</th><th>B/op</th><th>allocs/op</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Artifacts</h2>
+    <table>
+      <thead><tr><th>Report</th><th>Path</th></tr></thead>
+      <tbody>
+        <tr><td>Unit Test Results</td><td>reports/unit/results.txt</td></tr>
+        <tr><td>Code Coverage (HTML)</td><td>reports/unit/coverage.html</td></tr>
+        <tr><td>Integration Test Results</td><td>reports/integration/results.txt</td></tr>
+        <tr><td>Benchmark Results</td><td>reports/benchmark/results.txt</td></tr>
+        <tr><td>Consolidated Report</td><td>reports/report.html</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    Event Platform Test Suite &middot; Ingestion API (Go) &middot; 2026-08-08T08:14:54Z
+  </footer>
+</div>
+</body>
+</html>

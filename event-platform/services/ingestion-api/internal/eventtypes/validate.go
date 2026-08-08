@@ -1,28 +1,25 @@
 package eventtypes
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/buger/jsonparser"
 )
 
 func ValidatePayload(cfg EventTypeConfig, payloadJSON string) error {
 	if len(cfg.PayloadRules) == 0 {
 		return nil
 	}
-	var fields map[string]interface{}
-	if err := json.Unmarshal([]byte(payloadJSON), &fields); err != nil {
-		return fmt.Errorf("payload is not valid JSON: %w", err)
-	}
+	data := []byte(payloadJSON)
 	for _, rule := range cfg.PayloadRules {
-		v, present := fields[rule.Field]
-		if rule.Required && !present {
+		val, dataType, _, err := jsonparser.Get(data, rule.Field)
+		if rule.Required && (err != nil || dataType == jsonparser.NotExist) {
 			return fmt.Errorf("payload.%s is required", rule.Field)
 		}
-		if !present {
+		if err != nil || dataType == jsonparser.NotExist {
 			continue
 		}
-		s, ok := v.(string)
-		if ok && rule.MaxLength > 0 && len(s) > rule.MaxLength {
+		if dataType == jsonparser.String && rule.MaxLength > 0 && len(val) > rule.MaxLength {
 			return fmt.Errorf("payload.%s exceeds max length %d", rule.Field, rule.MaxLength)
 		}
 	}

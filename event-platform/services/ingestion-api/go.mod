@@ -3,6 +3,7 @@ module event-platform/ingestion-api
 go 1.23
 
 require (
+	github.com/buger/jsonparser v1.1.1
 	github.com/hamba/avro/v2 v2.27.0
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/twmb/franz-go v1.18.1

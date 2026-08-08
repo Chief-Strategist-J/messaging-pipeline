@@ -48,3 +48,20 @@ func BenchmarkValidatePayloadLargePayload(b *testing.B) {
 		_ = eventtypes.ValidatePayload(benchCfgWithRules, payload)
 	}
 }
+
+func BenchmarkValidatePayload_500KB(b *testing.B) {
+	padding := make([]byte, 500*1024)
+	for i := range padding {
+		padding[i] = 'x'
+	}
+	payload := `{"amount_cents":100,"currency":"USD","data":"` + string(padding) + `"}`
+	cfg := eventtypes.EventTypeConfig{
+		PayloadRules: []eventtypes.FieldRule{
+			{Field: "amount_cents", Required: true},
+		},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = eventtypes.ValidatePayload(cfg, payload)
+	}
+}

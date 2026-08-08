@@ -1,0 +1,43 @@
+go: downloading go.opentelemetry.io/otel v1.34.0
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/hamba/avro/v2 v2.27.0
+go: downloading github.com/redis/go-redis/v9 v9.7.3
+go: downloading github.com/twmb/franz-go v1.18.1
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+go: downloading github.com/go-logr/logr v1.4.2
+go: downloading go.opentelemetry.io/otel/metric v1.34.0
+go: downloading go.opentelemetry.io/otel/trace v1.34.0
+go: downloading github.com/json-iterator/go v1.1.12
+go: downloading github.com/mitchellh/mapstructure v1.5.0
+go: downloading github.com/modern-go/reflect2 v1.0.2
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.1.0
+go: downloading github.com/klauspost/compress v1.17.11
+go: downloading github.com/pierrec/lz4/v4 v4.1.22
+go: downloading github.com/twmb/franz-go/pkg/kmsg v1.9.0
+go: downloading github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+goos: linux
+goarch: amd64
+pkg: event-platform/ingestion-api/test/benchmark
+cpu: Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz
+BenchmarkRawEventValidate-4                    	276450177	         4.151 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRawEventValidate-4                    	324566149	         3.902 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRawEventValidate-4                    	282381165	         4.379 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRawEventValidateWithAutoTimestamp-4   	11907190	       115.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRawEventValidateWithAutoTimestamp-4   	 9999430	       118.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRawEventValidateWithAutoTimestamp-4   	12291406	       118.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHandlerHappyPath-4                    	   53800	     30678 ns/op	    6377 B/op	      25 allocs/op
+BenchmarkHandlerHappyPath-4                    	   56866	     20247 ns/op	    6377 B/op	      25 allocs/op
+BenchmarkHandlerHappyPath-4                    	  156642	     11963 ns/op	    6377 B/op	      25 allocs/op
+BenchmarkValidatePayloadNoRules-4              	178127101	         8.545 ns/op	       0 B/op	       0 allocs/op
+BenchmarkValidatePayloadNoRules-4              	127899178	         9.762 ns/op	       0 B/op	       0 allocs/op
+BenchmarkValidatePayloadNoRules-4              	100000000	        12.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkValidatePayloadWithRules-4            	  142819	      7957 ns/op	     720 B/op	      15 allocs/op
+BenchmarkValidatePayloadWithRules-4            	  144169	      8575 ns/op	     720 B/op	      15 allocs/op
+BenchmarkValidatePayloadWithRules-4            	  180853	      9813 ns/op	     720 B/op	      15 allocs/op
+BenchmarkValidatePayloadLargePayload-4         	   39405	     32578 ns/op	    2728 B/op	      11 allocs/op
+BenchmarkValidatePayloadLargePayload-4         	   40221	     29271 ns/op	    2728 B/op	      11 allocs/op
+BenchmarkValidatePayloadLargePayload-4         	   47236	     25425 ns/op	    2728 B/op	      11 allocs/op
+PASS
+ok  	event-platform/ingestion-api/test/benchmark	32.913s

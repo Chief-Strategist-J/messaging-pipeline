@@ -1,31 +1,28 @@
 package customprocessors
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+
+	"github.com/buger/jsonparser"
+)
 
 const currencyField = "currency"
 
 func PurchaseEnrichment(payloadJSON string) (string, error) {
-	var fields map[string]interface{}
-	if err := json.Unmarshal([]byte(payloadJSON), &fields); err != nil {
-		return "", err
+	data := []byte(payloadJSON)
+	if !json.Valid(data) {
+		return "", errors.New("invalid JSON")
 	}
-	c, ok := fields[currencyField].(string)
-	if ok {
-		fields[currencyField] = toUpper(c)
+	val, dataType, _, err := jsonparser.Get(data, currencyField)
+	if err != nil || dataType != jsonparser.String {
+		return payloadJSON, nil
 	}
-	out, err := json.Marshal(fields)
+	upper := strings.ToUpper(string(val))
+	updated, err := jsonparser.Set(data, []byte(`"`+upper+`"`), currencyField)
 	if err != nil {
 		return "", err
 	}
-	return string(out), nil
-}
-
-func toUpper(s string) string {
-	b := []byte(s)
-	for i, c := range b {
-		if c >= 'a' && c <= 'z' {
-			b[i] = c - 32
-		}
-	}
-	return string(b)
+	return string(updated), nil
 }

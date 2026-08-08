@@ -1,0 +1,67 @@
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     0.03%     27.33MiB / 1GiB       77.1MB / 473kB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           0.42%     1.231GiB / 15.49GiB   2.54MB / 2.24MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   0.28%     294.4MiB / 15.49GiB   953kB / 917kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           0.85%     165.4MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.05%     22.93MiB / 15.49GiB   693kB / 259kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             1.98%     970.9MiB / 15.49GiB   10.8MB / 3.55MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        0.62%     56.12MiB / 15.49GiB   58.8kB / 90.8kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             0.94%     5.477MiB / 15.49GiB   791kB / 280kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.25%     56.62MiB / 15.49GiB   256kB / 7.37kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          0.00%     29.86MiB / 15.49GiB   14.4kB / 126B
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+fdd660f1b9c72e87ec5aef529fccbb556f0aa45a53ce384a8dbeb1ae37a75f4a   wizardly_elion                     147.27%   1.516GiB / 15.49GiB   0B / 0B
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     79.17%    182.1MiB / 1GiB       2.54GB / 19.3MB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           7.88%     1.121GiB / 15.49GiB   2.61MB / 2.31MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   0.34%     246.8MiB / 15.49GiB   978kB / 941kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           0.77%     163.5MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.01%     31.85MiB / 15.49GiB   1.55MB / 554kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             56.97%    997.2MiB / 15.49GiB   20.9MB / 3.78MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        0.54%     54.65MiB / 15.49GiB   59.9kB / 92.7kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             6.74%     6.297MiB / 15.49GiB   1.75MB / 631kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.23%     94.76MiB / 15.49GiB   539kB / 11.6kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          0.00%     25.23MiB / 15.49GiB   14.5kB / 126B
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     4.35%     347.9MiB / 1GiB       2.6GB / 20.1MB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           0.46%     1.109GiB / 15.49GiB   2.62MB / 2.31MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   1.89%     243.3MiB / 15.49GiB   980kB / 944kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           1.06%     162.5MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.03%     32.51MiB / 15.49GiB   1.61MB / 589kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             24.12%    978.9MiB / 15.49GiB   21.5MB / 3.79MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        0.70%     54.65MiB / 15.49GiB   60.2kB / 93.2kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             0.90%     4.773MiB / 15.49GiB   1.79MB / 645kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.36%     97.84MiB / 15.49GiB   573kB / 12.3kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          1.17%     25.15MiB / 15.49GiB   14.5kB / 126B
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     0.00%     368.3MiB / 1GiB       2.6GB / 20.1MB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           8.74%     1.109GiB / 15.49GiB   2.63MB / 2.32MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   0.69%     243.3MiB / 15.49GiB   983kB / 946kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           1.29%     162.5MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.03%     32.61MiB / 15.49GiB   1.61MB / 594kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             27.31%    978.5MiB / 15.49GiB   21.5MB / 3.8MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        1.13%     54.65MiB / 15.49GiB   60.2kB / 93.2kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             4.47%     8.316MiB / 15.49GiB   1.79MB / 645kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.41%     97.91MiB / 15.49GiB   578kB / 12.5kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          10.28%    25.15MiB / 15.49GiB   14.5kB / 126B
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     0.03%     368.3MiB / 1GiB       2.6GB / 20.1MB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           0.80%     1.109GiB / 15.49GiB   2.63MB / 2.33MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   0.47%     243.4MiB / 15.49GiB   985kB / 949kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           1.18%     162.5MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.06%     32.66MiB / 15.49GiB   1.61MB / 594kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             2.65%     977.7MiB / 15.49GiB   21.5MB / 3.81MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        0.97%     54.65MiB / 15.49GiB   60.4kB / 93.7kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             1.18%     4.551MiB / 15.49GiB   1.79MB / 645kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.43%     110.7MiB / 15.49GiB   578kB / 12.5kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          0.01%     25.15MiB / 15.49GiB   14.5kB / 126B
+CONTAINER                                                          NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+6838d43e64d538d6d25b46bfee261ac2c794dc209e4b94cfc42dd1473582804a   event-platform-ingestion-api-1     0.00%     368.3MiB / 1GiB       2.6GB / 20.1MB
+c8fbb8dd22b0a4e0c86c0703dcdaeb07b1bb4d787207be1e8b4e7db65af3c7e6   event-platform-connect-1           8.26%     1.109GiB / 15.49GiB   2.64MB / 2.33MB
+a584c071f37444836d162c979bb38d32d60afa33ac866f580541399e687279f3   event-platform-schema-registry-1   0.31%     243.4MiB / 15.49GiB   988kB / 951kB
+55de57a54098aa856fda7187b652331afdf69bc7ad042780a3820d9779a60ac4   event-platform-grafana-1           0.77%     162.5MiB / 15.49GiB   21.8MB / 245kB
+b5d3c221c4a7c6201b17d84ef84fdb7ef311c940dfd61caf4c4b380926f632ad   event-platform-otel-collector-1    0.03%     32.7MiB / 15.49GiB    1.61MB / 594kB
+cc43704fb7293df541fffe553cc34792ba375ff9030cb1aaf95820581edca14c   event-platform-kafka-1             97.04%    1008MiB / 15.49GiB    21.5MB / 3.82MB
+8ade8a88e11a8d7929fc120ae3e41190de8f50f1d9a379c592dea3a3e9c800a3   event-platform-prometheus-1        1.16%     54.65MiB / 15.49GiB   60.4kB / 93.7kB
+edfe0325728a83754289b1f19c118c4defefb51d71683221ef363051b2e6bf06   event-platform-redis-1             0.86%     4.551MiB / 15.49GiB   1.79MB / 645kB
+58f957ceda6b01b89fe9caee7f709fd4270bdbef791b92139f37e704d329e41a   event-platform-tempo-1             0.23%     110.7MiB / 15.49GiB   578kB / 12.6kB
+461eec36fe7bb4d94deb2b32a4b2dc5ca139ce5fd27820f055c4ef52b3af14f3   event-platform-postgres-1          0.00%     25.15MiB / 15.49GiB   14.5kB / 126B

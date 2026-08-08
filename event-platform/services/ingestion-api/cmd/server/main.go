@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,6 +27,8 @@ const (
 )
 
 func main() {
+	go func() { log.Println("pprof:", http.ListenAndServe(":6060", nil)) }()
+
 	cfg := config.Load()
 	shutdownTracing := observability.InitTracing(cfg.OTLPEndpoint)
 	defer shutdownTracing(context.Background())
