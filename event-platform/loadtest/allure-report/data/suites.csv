@@ -1,7 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"Post an unregistered event_type, assert 422.","35","test_invalid_event_type_rejected","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""
-"Post garbage bytes as body, assert 400.","15","test_malformed_json_rejected","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""
-"Post one 500KB event, assert 202, then verify it reaches Postgres.","97","test_single_event_ingestion","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""
-"Hit /healthz — assert HTTP 200.","143","test_health_check","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""
-"Post the same event_id twice; first should be 202, second 200.","115","test_duplicate_event_deduped","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""
-"Post event with empty event_id, assert 422.","32","test_missing_event_id_rejected","","2026-08-08","passed","2026-08-08","","test_ingestion_pipeline","",""

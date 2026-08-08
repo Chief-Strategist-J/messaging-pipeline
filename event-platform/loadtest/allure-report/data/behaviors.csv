@@ -1,7 +1,0 @@
-"BROKEN","EPIC","FAILED","FEATURE","PASSED","SKIPPED","STORY","UNKNOWN"
-"0","","0","Validation & Filtering","1","0","Event Type Routing","0"
-"0","","0","Validation & Filtering","1","0","JSON Parsing","0"
-"0","","0","Ingestion API","1","0","Event Pipeline","0"
-"0","","0","Ingestion API","1","0","Health & Monitoring","0"
-"0","","0","Ingestion API","1","0","Deduplication","0"
-"0","","0","Validation & Filtering","1","0","Missing Required Fields","0"

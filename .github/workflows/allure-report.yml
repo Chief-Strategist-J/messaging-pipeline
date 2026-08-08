@@ -30,13 +30,11 @@ jobs:
         run: |
           npm install -g allure-commandline http-server
 
-      - name: Start Event Platform Stack (Kafka, Postgres, Redis, Ingestion API)
+      - name: Start Event Platform Stack
         run: |
           cd event-platform/infra
           docker compose up -d --build
-          # Wait for services to become healthy
-          docker compose exec -T postgres sh -c "until pg_isready -U app; do sleep 2; done"
-          docker compose exec -T ingestion-api sh -c "until curl -s http://localhost:8080/healthz; do sleep 2; done"
+          sleep 15
 
       - name: Run Pytest Integration & Load Test Suite
         env:
@@ -59,10 +57,3 @@ jobs:
           name: allure-html-report
           path: event-platform/loadtest/allure-report/index.html
           retention-days: 30
-
-      - name: Deploy Allure Report to GitHub Pages
-        if: always() && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: event-platform/loadtest/allure-report

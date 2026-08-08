@@ -1,0 +1,99 @@
+{
+  "name": "test_load_10k_requests",
+  "status": "passed",
+  "statusDetails": {
+    "known": false,
+    "muted": false,
+    "flaky": false
+  },
+  "description": "\n    Shell out to k6 for 10,000 requests with 500KB payload.\n    Collect docker stats + Kafka lag during the run.\n    Parse k6 summary JSON and assert acceptance criteria.\n    ",
+  "attachments": [
+    {
+      "name": "baseline_docker_stats",
+      "source": "22c60bba-6492-4c48-8be4-6041e54e4ee0-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "baseline_kafka_lag",
+      "source": "f6b0112e-1d0f-4690-9770-08155ff1b5c3-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "k6_command",
+      "source": "55e4a864-acda-4252-aa47-ce807a6eb1c5-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "k6_full_output",
+      "source": "3f2efd4f-4818-4ccd-8e25-c4767fdfd2fe-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "docker_stats_timeseries",
+      "source": "b919cfc0-82f8-4b8f-a20a-e2d1d04d9000-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "kafka_lag_timeseries",
+      "source": "449fb65d-5a48-4a04-a4e0-4d1bb9c497b0-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "final_docker_stats",
+      "source": "8edb9707-83c4-4d82-b150-7a832042e1ba-attachment.txt",
+      "type": "text/plain"
+    },
+    {
+      "name": "final_kafka_lag",
+      "source": "4a8ee511-c81c-4106-98b0-d3d9b636f566-attachment.txt",
+      "type": "text/plain"
+    }
+  ],
+  "start": 1786179884530,
+  "stop": 1786180195305,
+  "uuid": "cbce9797-f874-4819-a0d1-e4f792b8d57e",
+  "historyId": "e26b6aa2eff2cbd526554bf482c83d8a",
+  "testCaseId": "e26b6aa2eff2cbd526554bf482c83d8a",
+  "fullName": "test_ingestion_pipeline#test_load_10k_requests",
+  "labels": [
+    {
+      "name": "story",
+      "value": "10K Request Load Test \u2014 500KB Payload"
+    },
+    {
+      "name": "feature",
+      "value": "Performance & Scalability"
+    },
+    {
+      "name": "severity",
+      "value": "critical"
+    },
+    {
+      "name": "suite",
+      "value": "test_ingestion_pipeline"
+    },
+    {
+      "name": "host",
+      "value": "btpllap22-ThinkPad-L460"
+    },
+    {
+      "name": "thread",
+      "value": "405977-MainThread"
+    },
+    {
+      "name": "framework",
+      "value": "pytest"
+    },
+    {
+      "name": "language",
+      "value": "cpython3"
+    },
+    {
+      "name": "package",
+      "value": "test_ingestion_pipeline"
+    }
+  ],
+  "titlePath": [
+    "test_ingestion_pipeline.py"
+  ]
+}

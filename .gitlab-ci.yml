@@ -3,10 +3,6 @@ default:
 
 stages:
   - test
-  - report
-
-variables:
-  DOCKER_DRIVER: overlay2
 
 allure_test_job:
   stage: test
@@ -24,8 +20,8 @@ allure_test_job:
     - python3 -m pytest test_ingestion_pipeline.py -v --alluredir=allure-results
     - allure generate allure-results -o allure-report --single-file --clean
   artifacts:
-    name: "allure-report-$CI_COMMIT_REF_SLUG"
-    when: always"
+    name: "allure-report"
+    when: always
     paths:
       - event-platform/loadtest/allure-report/index.html
       - event-platform/loadtest/allure-results/

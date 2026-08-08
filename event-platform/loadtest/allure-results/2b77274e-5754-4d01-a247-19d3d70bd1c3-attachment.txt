@@ -1,1 +1,0 @@
-Failed to capture Kafka lag: Command '['docker', 'exec', 'event-platform-kafka-1', '/opt/kafka/bin/kafka-consumer-groups.sh', '--bootstrap-server', 'localhost:9092', '--describe', '--all-groups']' timed out after 15 seconds

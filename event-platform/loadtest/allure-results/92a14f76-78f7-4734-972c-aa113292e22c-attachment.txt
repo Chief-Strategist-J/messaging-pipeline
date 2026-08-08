@@ -1,1 +1,0 @@
-Failed to capture docker stats: Command '['docker', 'stats', '--no-stream', '--format', 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}']' timed out after 10 seconds
