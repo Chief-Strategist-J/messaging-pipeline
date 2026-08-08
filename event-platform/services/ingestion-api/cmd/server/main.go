@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	readTimeout  = 5 * time.Second
-	writeTimeout = 5 * time.Second
+	readTimeout  = 30 * time.Second
+	writeTimeout = 30 * time.Second
 	idleTimeout  = 60 * time.Second
 	shutdownWait = 10 * time.Second
 )

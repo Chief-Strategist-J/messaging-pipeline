@@ -1,0 +1,57 @@
+=== 2026-08-08T15:45:18 (poll #1) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+bold_kowalevski                    13.47%    301.3MiB / 15.49GiB   175kB / 56MB
+event-platform-ingestion-api-1     11.39%    99.23MiB / 256MiB     57.6MB / 204kB
+event-platform-connect-1           1.58%     126.3MiB / 15.49GiB   2.01MB / 1.77MB
+event-platform-schema-registry-1   0.34%     159.4MiB / 15.49GiB   758kB / 722kB
+event-platform-grafana-1           1.20%     198MiB / 15.49GiB     21.6MB / 75.4kB
+event-platform-otel-collector-1    0.05%     33.45MiB / 15.49GiB   339kB / 142kB
+event-platform-tempo-1             0.34%     76.71MiB / 15.49GiB   146kB / 8.97kB
+event-platform-redis-1             0.86%     2.945MiB / 15.49GiB   444kB / 170kB
+event-platform-prometheus-1        0.59%     46.86MiB / 15.49GiB   40.5kB / 44.3kB
+event-platform-postgres-1          0.00%     23.35MiB / 15.49GiB   25.5kB / 8.99kB
+event-platform-kafka-1             11.03%    344MiB / 15.49GiB     2.53MB / 2.77MB
+
+
+=== 2026-08-08T15:45:36 (poll #2) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+bold_kowalevski                    0.84%     377MiB / 15.49GiB     464kB / 154MB
+event-platform-ingestion-api-1     0.00%     101.6MiB / 256MiB     156MB / 567kB
+event-platform-connect-1           9.22%     126.3MiB / 15.49GiB   2.02MB / 1.78MB
+event-platform-schema-registry-1   0.25%     159.4MiB / 15.49GiB   764kB / 728kB
+event-platform-grafana-1           0.65%     198MiB / 15.49GiB     21.6MB / 75.4kB
+event-platform-otel-collector-1    0.04%     33.89MiB / 15.49GiB   378kB / 157kB
+event-platform-tempo-1             0.29%     78.6MiB / 15.49GiB    160kB / 9.57kB
+event-platform-redis-1             6.66%     3.023MiB / 15.49GiB   477kB / 184kB
+event-platform-prometheus-1        1.08%     47.4MiB / 15.49GiB    40.7kB / 44.8kB
+event-platform-postgres-1          0.00%     23.35MiB / 15.49GiB   25.7kB / 9.19kB
+event-platform-kafka-1             1.62%     340.3MiB / 15.49GiB   2.56MB / 2.8MB
+
+
+=== 2026-08-08T15:45:55 (poll #3) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+bold_kowalevski                    1.10%     291.9MiB / 15.49GiB   786kB / 257MB
+event-platform-ingestion-api-1     0.00%     101.7MiB / 256MiB     259MB / 963kB
+event-platform-connect-1           0.83%     126.3MiB / 15.49GiB   2.04MB / 1.8MB
+event-platform-schema-registry-1   0.33%     159.4MiB / 15.49GiB   770kB / 734kB
+event-platform-grafana-1           1.61%     198.2MiB / 15.49GiB   21.6MB / 75.4kB
+event-platform-otel-collector-1    0.15%     34.41MiB / 15.49GiB   416kB / 172kB
+event-platform-tempo-1             0.36%     87.68MiB / 15.49GiB   173kB / 10.1kB
+event-platform-redis-1             1.01%     3.035MiB / 15.49GiB   512kB / 198kB
+event-platform-prometheus-1        0.56%     47.45MiB / 15.49GiB   41kB / 45.3kB
+event-platform-postgres-1          0.00%     23.35MiB / 15.49GiB   25.9kB / 9.37kB
+event-platform-kafka-1             1.92%     340.4MiB / 15.49GiB   2.58MB / 2.82MB
+
+
+=== 2026-08-08T15:46:14 (poll #4) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-ingestion-api-1     0.00%     97.04MiB / 256MiB     310MB / 1.21MB
+event-platform-connect-1           0.40%     126.3MiB / 15.49GiB   2.06MB / 1.82MB
+event-platform-schema-registry-1   0.52%     159.4MiB / 15.49GiB   777kB / 741kB
+event-platform-grafana-1           0.72%     198.2MiB / 15.49GiB   21.6MB / 75.4kB
+event-platform-otel-collector-1    0.02%     34.89MiB / 15.49GiB   454kB / 186kB
+event-platform-tempo-1             0.28%     107.3MiB / 15.49GiB   187kB / 10.6kB
+event-platform-redis-1             0.83%     3.039MiB / 15.49GiB   531kB / 206kB
+event-platform-prometheus-1        0.62%     47.53MiB / 15.49GiB   41.5kB / 46.3kB
+event-platform-postgres-1          0.00%     23.35MiB / 15.49GiB   26.1kB / 9.61kB
+event-platform-kafka-1             143.28%   394.6MiB / 15.49GiB   2.61MB / 2.85MB
