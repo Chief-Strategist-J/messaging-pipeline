@@ -21,8 +21,21 @@ const rawEventSchemaJSON = `{
 
 var rawEventSchema = avro.MustParse(rawEventSchemaJSON)
 
+type avroRawEvent struct {
+	EventID    string `avro:"event_id"`
+	EventType  string `avro:"event_type"`
+	OccurredAt int64  `avro:"occurred_at"`
+	Payload    string `avro:"payload"`
+}
+
 func encodeAvro(evt RawEvent, schemaID uint32) ([]byte, error) {
-	payload, err := avro.Marshal(rawEventSchema, evt)
+	aEvt := avroRawEvent{
+		EventID:    evt.EventID,
+		EventType:  evt.EventType,
+		OccurredAt: evt.OccurredAt,
+		Payload:    string(evt.Payload),
+	}
+	payload, err := avro.Marshal(rawEventSchema, aEvt)
 	if err != nil {
 		return nil, err
 	}

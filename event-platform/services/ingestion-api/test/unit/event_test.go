@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"encoding/json"
 	"testing"
 
 	"event-platform/ingestion-api/internal/ingest"
@@ -14,7 +15,7 @@ func TestRawEventValidate(t *testing.T) {
 	}{
 		{
 			name:    "valid event",
-			event:   ingest.RawEvent{EventID: "abc-123", EventType: "page_view", OccurredAt: 1700000000000, Payload: "{}"},
+			event:   ingest.RawEvent{EventID: "abc-123", EventType: "page_view", OccurredAt: 1700000000000, Payload: json.RawMessage("{}")},
 			wantErr: false,
 		},
 		{

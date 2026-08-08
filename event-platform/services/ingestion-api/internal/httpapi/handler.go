@@ -2,11 +2,13 @@ package httpapi
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"event-platform/ingestion-api/internal/constants"
 	"event-platform/ingestion-api/internal/eventtypes"
 	"event-platform/ingestion-api/internal/ingest"
+	"github.com/buger/jsonparser"
 )
 
 type Handler struct {
@@ -24,11 +26,32 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var evt ingest.RawEvent
-	if err := json.NewDecoder(r.Body).Decode(&evt); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil || len(body) == 0 {
 		http.Error(w, constants.ErrInvalidPayload, http.StatusBadRequest)
 		return
 	}
+
+	eventID, err1 := jsonparser.GetString(body, "event_id")
+	eventType, err2 := jsonparser.GetString(body, "event_type")
+	payloadBytes, _, _, err3 := jsonparser.Get(body, "payload")
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		if !json.Valid(body) {
+			http.Error(w, constants.ErrInvalidPayload, http.StatusBadRequest)
+			return
+		}
+	}
+
+	occurredAt, _ := jsonparser.GetInt(body, "occurred_at")
+
+	evt := ingest.RawEvent{
+		EventID:    eventID,
+		EventType:  eventType,
+		OccurredAt: occurredAt,
+		Payload:    json.RawMessage(payloadBytes),
+	}
+
 	if err := evt.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
@@ -40,18 +63,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := eventtypes.ValidatePayload(cfg, evt.Payload); err != nil {
+	if err := eventtypes.ValidatePayload(cfg, string(evt.Payload)); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
 	if proc, ok := eventtypes.GetCustomProcessor(cfg.CustomProcessor); ok {
-		enriched, err := proc(evt.Payload)
+		enriched, err := proc(string(evt.Payload))
 		if err != nil {
 			http.Error(w, constants.ErrProcessingFailed+err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		evt.Payload = enriched
+		evt.Payload = json.RawMessage(enriched)
 	}
 
 	seen, err := h.deduper.SeenBefore(r.Context(), evt.EventID)

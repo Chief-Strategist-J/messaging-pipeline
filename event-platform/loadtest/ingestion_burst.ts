@@ -9,8 +9,8 @@ export const options: Options = {
       rate: 167,
       timeUnit: '1s',
       duration: '60s',
-      preAllocatedVUs: 200,
-      maxVUs: 500,
+      preAllocatedVUs: 500,
+      maxVUs: 1000,
     },
   },
   thresholds: {
@@ -20,14 +20,13 @@ export const options: Options = {
 };
 
 const padding500KB = 'x'.repeat(500 * 1024);
-const PRE_BUILT_PAYLOAD_BODY = JSON.stringify({ url: '/home', data: padding500KB });
 
 export default function (): void {
   const payload: string = JSON.stringify({
     event_id: `${__VU}-${__ITER}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     event_type: 'page_view',
     occurred_at: Date.now(),
-    payload: PRE_BUILT_PAYLOAD_BODY,
+    payload: { url: '/home', data: padding500KB },
   });
   const res = http.post('http://host.docker.internal:8080/v1/events', payload, {
     headers: { 'Content-Type': 'application/json' },
