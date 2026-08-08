@@ -19,12 +19,14 @@ export const options: Options = {
   },
 };
 
+const padding500KB = 'x'.repeat(500 * 1024);
+
 export default function (): void {
   const payload: string = JSON.stringify({
     event_id: `${__VU}-${__ITER}-${Date.now()}`,
     event_type: 'page_view',
     occurred_at: Date.now(),
-    payload: '{"url":"/home"}',
+    payload: JSON.stringify({ url: '/home', data: padding500KB }),
   });
   const res = http.post('http://ingestion-api:8080/v1/events', payload, {
     headers: { 'Content-Type': 'application/json' },

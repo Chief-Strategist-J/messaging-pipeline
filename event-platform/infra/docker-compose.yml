@@ -72,11 +72,18 @@ services:
       schema-registry:
         condition: service_started
     environment:
-      BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
-      GROUP_ID: ${CONNECT_GROUP_ID}
-      CONFIG_STORAGE_TOPIC: ${CONNECT_CONFIG_TOPIC}
-      OFFSET_STORAGE_TOPIC: ${CONNECT_OFFSET_TOPIC}
-      STATUS_STORAGE_TOPIC: ${CONNECT_STATUS_TOPIC}
+      CONNECT_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
+      CONNECT_GROUP_ID: ${CONNECT_GROUP_ID}
+      CONNECT_CONFIG_STORAGE_TOPIC: ${CONNECT_CONFIG_TOPIC}
+      CONNECT_OFFSET_STORAGE_TOPIC: ${CONNECT_OFFSET_TOPIC}
+      CONNECT_STATUS_STORAGE_TOPIC: ${CONNECT_STATUS_TOPIC}
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:${SCHEMA_REGISTRY_PORT}
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
     ports:
       - "${CONNECT_PORT}:8083"
     networks: [backbone]
@@ -93,6 +100,7 @@ services:
       KAFKA_BROKERS: "kafka:${KAFKA_INTERNAL_PORT}"
       REDIS_ADDR: "redis:${REDIS_PORT}"
       OTLP_ENDPOINT: "otel-collector:${OTEL_GRPC_PORT}"
+      SCHEMA_ID: "1"
       EVENT_TYPES_PATH: "/etc/config/event-types.yaml"
     volumes:
       - "../config/event-types.yaml:/etc/config/event-types.yaml:ro"
