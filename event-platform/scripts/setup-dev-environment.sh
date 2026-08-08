@@ -44,10 +44,16 @@ done
 echo "   ✅ Kafka Broker is ready."
 echo ""
 
-echo "6. Provisioning Kafka Topics..."
+echo "6. Provisioning Kafka Topics & Schema Registry..."
 docker exec event-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic events.raw --partitions 12 --replication-factor 1 --if-not-exists
 docker exec event-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic events.enriched --partitions 12 --replication-factor 1 --if-not-exists
-echo "   ✅ Kafka topics (events.raw, events.enriched) created."
+
+until curl -s http://localhost:8081/subjects >/dev/null; do
+    sleep 2
+done
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema": "{\"type\":\"record\",\"name\":\"RawEvent\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"occurred_at\",\"type\":\"long\"},{\"name\":\"payload\",\"type\":\"string\"}]}"}' http://localhost:8081/subjects/events.raw-value/versions >/dev/null
+curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema": "{\"type\":\"record\",\"name\":\"EnrichedCount\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"window_start\",\"type\":\"long\"},{\"name\":\"event_count\",\"type\":\"long\"}]}"}' http://localhost:8081/subjects/events.enriched-value/versions >/dev/null
+echo "   ✅ Kafka topics and Avro Schemas registered in Schema Registry."
 echo ""
 
 echo "7. Registering Kafka Connect Sinks..."
