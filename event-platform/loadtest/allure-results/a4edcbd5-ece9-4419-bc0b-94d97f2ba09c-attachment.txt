@@ -1,1 +1,0 @@
-ENVIRONMENT NOTE: This performance test ran in a local single-node docker-compose integration environment on developer workstation hardware. It is designed to validate pipeline correctness and container socket handling under load, but is NOT representative of a multi-broker, multi-node production cluster topology.

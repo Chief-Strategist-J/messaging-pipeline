@@ -1,0 +1,1 @@
+docker run --rm --network host -e TARGET_URL=http://127.0.0.1:27488/v1/events -v /home/btpl-lap-22/live/messaging-pipeline/event-platform/loadtest:/scripts grafana/k6:latest run --summary-export=/scripts/k6-results.json /scripts/ingestion_10k_loadtest.ts

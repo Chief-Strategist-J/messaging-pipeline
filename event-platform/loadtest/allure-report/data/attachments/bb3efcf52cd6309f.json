@@ -1,0 +1,20 @@
+{
+  "overall_status": "FAIL",
+  "target_rate_req_sec": 167.0,
+  "achieved_rate_req_sec": 44.19416286726647,
+  "pct_of_target": 26.46357057920148,
+  "total_requests": 10000,
+  "dropped_iterations": 0,
+  "error_rate": 1.0,
+  "mean_latency_ms": 573.154922167098,
+  "p50_ms": 503.310902,
+  "p90_ms": 994.5236013000001,
+  "p95_ms": 1182.63765945,
+  "p99_ms": 0,
+  "min_ms": 46.326301,
+  "max_ms": 2616.28909,
+  "pre_test_db_count": 40018,
+  "post_test_db_count": 50018,
+  "duplicate_event_ids_count": 0,
+  "environment": "Local single-node docker-compose integration test"
+}

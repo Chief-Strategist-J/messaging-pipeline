@@ -1,0 +1,86 @@
+=== 2026-08-10T15:09:35 (poll #1) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+bold_montalcini                    98.02%    303.7MiB / 15.49GiB   0B / 0B
+event-platform-grafana-1           1.65%     355.6MiB / 15.49GiB   21.7MB / 4.46MB
+event-platform-ingestion-api-1     36.12%    69.66MiB / 1GiB       36.2GB / 183MB
+event-platform-connect-1           23.39%    2.327GiB / 15.49GiB   148MB / 20.8GB
+event-platform-traefik-1           23.71%    85.23MiB / 15.49GiB   36.3GB / 36.3GB
+event-platform-schema-registry-1   0.19%     164.3MiB / 15.49GiB   2.53MB / 2.38MB
+event-platform-otel-collector-1    0.13%     41.92MiB / 15.49GiB   16.4MB / 10.5MB
+event-platform-redis-1             1.46%     8.359MiB / 15.49GiB   8.09MB / 2.88MB
+event-platform-postgres-1          73.31%    180.8MiB / 15.49GiB   20.8GB / 14.6MB
+event-platform-tempo-1             0.24%     287.5MiB / 15.49GiB   11.1MB / 368kB
+event-platform-kafka-1             7.66%     840.3MiB / 15.49GiB   142MB / 140MB
+event-platform-prometheus-1        0.62%     51.38MiB / 15.49GiB   2.36MB / 277kB
+
+
+=== 2026-08-10T15:10:03 (poll #2) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+bold_montalcini                    77.99%    240.1MiB / 15.49GiB   0B / 0B
+event-platform-grafana-1           0.66%     362MiB / 15.49GiB     21.7MB / 4.47MB
+event-platform-ingestion-api-1     39.38%    88.8MiB / 1GiB        37.1GB / 189MB
+event-platform-connect-1           19.36%    2.327GiB / 15.49GiB   153MB / 21.6GB
+event-platform-traefik-1           26.13%    97.85MiB / 15.49GiB   37.1GB / 37.2GB
+event-platform-schema-registry-1   0.25%     164.6MiB / 15.49GiB   2.54MB / 2.39MB
+event-platform-otel-collector-1    2.24%     53.8MiB / 15.49GiB    16.8MB / 10.8MB
+event-platform-redis-1             1.58%     8.766MiB / 15.49GiB   8.42MB / 3MB
+event-platform-postgres-1          60.90%    193.3MiB / 15.49GiB   21.6GB / 15.2MB
+event-platform-tempo-1             4.25%     294MiB / 15.49GiB     11.3MB / 370kB
+event-platform-kafka-1             6.07%     844.2MiB / 15.49GiB   146MB / 144MB
+event-platform-prometheus-1        0.53%     60.28MiB / 15.49GiB   2.38MB / 282kB
+
+
+=== 2026-08-10T15:10:32 (poll #3) ===
+Failed to capture docker stats: Command '['docker', 'stats', '--no-stream', '--format', 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}']' timed out after 10 seconds
+
+=== 2026-08-10T15:11:07 (poll #4) ===
+Failed to capture docker stats: Command '['docker', 'stats', '--no-stream', '--format', 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}']' timed out after 10 seconds
+
+=== 2026-08-10T15:11:42 (poll #5) ===
+Failed to capture docker stats: Command '['docker', 'stats', '--no-stream', '--format', 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}']' timed out after 10 seconds
+
+=== 2026-08-10T15:12:17 (poll #6) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-grafana-1           0.73%     266.9MiB / 15.49GiB   21.5MB / 50.9kB
+bold_montalcini                    60.03%    264.9MiB / 15.49GiB   0B / 0B
+event-platform-ingestion-api-1     26.63%    94.97MiB / 1GiB       39.8GB / 209MB
+event-platform-connect-1           16.23%    2.33GiB / 15.49GiB    169MB / 24.4GB
+event-platform-traefik-1           16.72%    142.7MiB / 15.49GiB   39.9GB / 39.9GB
+event-platform-schema-registry-1   0.40%     255.6MiB / 15.49GiB   2.59MB / 2.43MB
+event-platform-otel-collector-1    0.32%     82.54MiB / 15.49GiB   18.3MB / 11.6MB
+event-platform-redis-1             1.36%     7.676MiB / 15.49GiB   9.51MB / 3.38MB
+event-platform-postgres-1          33.93%    193MiB / 15.49GiB     24.3GB / 17.2MB
+event-platform-tempo-1             0.18%     174.9MiB / 15.49GiB   12.1MB / 379kB
+event-platform-kafka-1             34.93%    956.7MiB / 15.49GiB   160MB / 158MB
+event-platform-prometheus-1        0.43%     67.34MiB / 15.49GiB   2.43MB / 287kB
+
+
+=== 2026-08-10T15:12:50 (poll #7) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-grafana-1           0.71%     231.4MiB / 15.49GiB   21.5MB / 53.6kB
+bold_montalcini                    100.87%   232.1MiB / 15.49GiB   0B / 0B
+event-platform-ingestion-api-1     41.45%    128.5MiB / 1GiB       40.5GB / 214MB
+event-platform-connect-1           14.89%    2.332GiB / 15.49GiB   172MB / 25.1GB
+event-platform-traefik-1           22.06%    165.4MiB / 15.49GiB   40.6GB / 40.6GB
+event-platform-schema-registry-1   0.44%     255.6MiB / 15.49GiB   2.6MB / 2.44MB
+event-platform-otel-collector-1    0.54%     82.95MiB / 15.49GiB   18.7MB / 11.8MB
+event-platform-redis-1             1.69%     8.004MiB / 15.49GiB   9.78MB / 3.48MB
+event-platform-postgres-1          54.75%    192.3MiB / 15.49GiB   25GB / 17.7MB
+event-platform-tempo-1             0.23%     178.4MiB / 15.49GiB   12.3MB / 381kB
+event-platform-kafka-1             16.71%    880.5MiB / 15.49GiB   164MB / 161MB
+event-platform-prometheus-1        0.59%     68.29MiB / 15.49GiB   2.44MB / 288kB
+
+
+=== 2026-08-10T15:13:18 (poll #8) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-grafana-1           1.40%     232.2MiB / 15.49GiB   21.5MB / 56.1kB
+event-platform-ingestion-api-1     0.10%     60.06MiB / 1GiB       41.2GB / 218MB
+event-platform-connect-1           2.15%     2.332GiB / 15.49GiB   176MB / 25.7GB
+event-platform-traefik-1           3.78%     122.9MiB / 15.49GiB   41.2GB / 41.3GB
+event-platform-schema-registry-1   0.23%     255.6MiB / 15.49GiB   2.61MB / 2.45MB
+event-platform-otel-collector-1    2.63%     83.13MiB / 15.49GiB   19.1MB / 12MB
+event-platform-redis-1             0.81%     8.613MiB / 15.49GiB   10MB / 3.56MB
+event-platform-postgres-1          0.01%     188.2MiB / 15.49GiB   25.7GB / 18.1MB
+event-platform-tempo-1             0.23%     195.4MiB / 15.49GiB   12.5MB / 383kB
+event-platform-kafka-1             4.45%     853.1MiB / 15.49GiB   167MB / 165MB
+event-platform-prometheus-1        3.46%     69.13MiB / 15.49GiB   2.45MB / 289kB
