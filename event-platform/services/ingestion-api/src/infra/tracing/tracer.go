@@ -5,6 +5,7 @@ import (
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -28,6 +29,7 @@ func InitTracing(otlpEndpoint string) func(context.Context) {
 		trace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	return func(ctx context.Context) {
 		_ = tp.Shutdown(ctx)
