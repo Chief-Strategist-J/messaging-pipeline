@@ -277,7 +277,100 @@ graph LR
 
 ---
 
-## 🛑 6. Challenges Faced & Resolutions
+## ⚙️ 6. Service Configuration Reference Tables
+
+### 1. Ingestion API Service Configuration (`ingestion-api`)
+
+| Configuration Parameter | Environment Variable | Default / Dev Value | Description & Operational Impact |
+|---|---|---|---|
+| **Server HTTP Port** | `PORT` | `8080` (Host: `27480`) | Internal HTTP binding port for event ingestion endpoints |
+| **API Replicas Scale** | `INGESTION_API_REPLICAS` | `1` (Scale: 1-4) | Number of Docker Compose service replica instances |
+| **Redis Address** | `REDIS_ADDR` | `redis:6379` (Host: `27479`) | Endpoint for atomic event deduplication (`SETNX`) |
+| **Redis Deduplication TTL** | `REDIS_DEDUP_TTL` | `24h` (`86400s`) | Time-to-live window for unique `event_id` keys |
+| **Kafka Bootstrap Brokers** | `KAFKA_BROKERS` | `kafka:9092` (Host: `27492`) | Bootstrap server list for Kafka producer client |
+| **Kafka Topic Raw** | `KAFKA_TOPIC_RAW` | `events.raw` | Target topic for raw binary Avro ingested events |
+| **Schema Registry URL** | `SCHEMA_REGISTRY_URL` | `http://schema-registry:8081` | Confluent Schema Registry endpoint for Avro schemas |
+| **OTel Collector Endpoint** | `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` | gRPC endpoint for exporting distributed OpenTelemetry spans |
+
+### 2. Traefik Edge Gateway Configuration (`traefik`)
+
+| Configuration Parameter | Environment Variable | Default / Dev Value | Description & Operational Impact |
+|---|---|---|---|
+| **HTTP Entrypoint Port** | `TRAEFIK_HTTP_PORT` | `27488` | Main public HTTP ingress port |
+| **HTTPS Entrypoint Port** | `TRAEFIK_HTTPS_PORT` | `27443` | Main public TLS/HTTPS ingress port |
+| **Rate Limit Average** | `API_RATE_LIMIT_AVERAGE` | `200` req/s | Token-bucket average sustained request rate |
+| **Rate Limit Burst** | `API_RATE_LIMIT_BURST` | `500` req/s | Token-bucket maximum instantaneous burst capacity |
+| **Max Payload Size** | `API_MAX_REQUEST_BODY_BYTES` | `10485760` (10 MB) | Maximum allowed HTTP request body size |
+| **Trusted CIDR IP Whitelist** | `TRUSTED_IPS` | `127.0.0.1/8,10.0.0.0/8...` | IP whitelist allowed through `real-ip` middleware |
+| **Grafana BasicAuth Hash** | `GRAFANA_TRAEFIK_BASICAUTH` | bcrypt hash | Password protection for administrative endpoints |
+
+### 3. Kafka & Streaming Cluster Configuration
+
+| Configuration Parameter | Environment Variable / Property | Value | Description & Operational Impact |
+|---|---|---|---|
+| **Kafka Node ID** | `KAFKA_NODE_ID` | `1` | Single-node KRaft broker identifier |
+| **Controller Quorum Voters** | `KAFKA_CONTROLLER_QUORUM_VOTERS` | `1@kafka:9093` | KRaft consensus voting metadata |
+| **Raw Topic Partitions** | `TOPIC_PARTITIONS` | `12` | Horizontal partition parallelism count |
+| **Topic Replication Factor** | `TOPIC_REPLICATION_FACTOR` | `1` | Replication copy count per partition |
+| **Producer Compression** | `compression.type` | `lz4` | High-ratio, low-CPU binary compression codec |
+| **Producer Acknowledgement** | `acks` | `all` (`-1`) | Requires leader and all in-sync replicas to commit |
+
+### 4. Database & Sink Connectors Configuration
+
+| Configuration Parameter | Environment Variable / Setting | Value | Description & Operational Impact |
+|---|---|---|---|
+| **PostgreSQL Database** | `POSTGRES_DB` | `app` | Relational database instance name |
+| **PostgreSQL User** | `POSTGRES_USER` | `app` | Relational database username |
+| **PostgreSQL Password** | `POSTGRES_PASSWORD` | `Scaibu@123` | Secure database connection password |
+| **PostgreSQL Host Port** | `POSTGRES_PORT` | `27432` | Host bound port for PostgreSQL 17 |
+| **Raw Sink Batch Size** | `batch.size` | `5000` | Micro-batch record threshold per SQL commit |
+| **Raw Sink Tasks** | `tasks.max` | `12` | Maximum concurrent connector worker tasks |
+
+---
+
+## 📋 7. Operational System Decision & Truth Tables
+
+### 1. Ingestion API Execution & Response Truth Table
+
+| Event Payload Valid? | `event_type` Registered? | Redis `SETNX` Key Result | Schema Registry Reachable? | HTTP Response Code | Ingestion API Action Taken | Deduplication Outcome |
+|:---:|:---:|:---:|:---:|:---:|---|---|
+| **No** | N/A | N/A | N/A | **`400 Bad Request`** | Reject request immediately; return JSON validation error | N/A |
+| **Yes** | **No** | N/A | N/A | **`422 Unprocessable`** | Reject request; `event_type` not recognized in config | N/A |
+| **Yes** | **Yes** | **`0` (Key Exists)** | N/A | **`202 Accepted`** | Acknowledge request silently; drop event immediately | **Duplicate Dropped** (No Kafka write) |
+| **Yes** | **Yes** | **`1` (New Key)** | **No (Error)** | **`500 Internal Error`** | Abort request; return server error to trigger client retry | Key set in Redis (cleared on fail) |
+| **Yes** | **Yes** | **`1` (New Key)** | **Yes (Ready)** | **`202 Accepted`** | Encode Avro binary; produce to `events.raw`; commit offset | **Unique Processed** (Written to Kafka) |
+
+### 2. Traefik Edge Ingress Security Truth Table
+
+| Client IP Allowed (CIDR)? | Security Headers Injected? | Rate Limit Token Available? | Body Size <= 10MB? | BasicAuth Valid? (Admin Paths) | Traefik Gateway Action | HTTP Status Returned |
+|:---:|:---:|:---:|:---:|:---:|---|:---:|
+| **No** | N/A | N/A | N/A | N/A | Block request at `real-ip` middleware | **`403 Forbidden`** |
+| **Yes** | **Yes** | **No (Exceeded)** | N/A | N/A | Block request at `api-ratelimit` middleware | **`429 Too Many Requests`** |
+| **Yes** | **Yes** | **Yes** | **No (> 10MB)** | N/A | Reject request at `api-body-limit` middleware | **`413 Payload Too Large`** |
+| **Yes** | **Yes** | **Yes** | **Yes** | **No (Invalid)** | Block request at `grafana-auth` / `dashboard-auth` | **`401 Unauthorized`** |
+| **Yes** | **Yes** | **Yes** | **Yes** | **Yes / N/A** | Pass request to backend virtual service (`ingestion-api` / `grafana`) | **`200 / 202 Success`** |
+
+### 3. Kafka Connect Sink Persistence Truth Table
+
+| Connector Name | Target Topic | Target Database Table | Avro Schema Valid? | Record Key State in Postgres | SQL Query Executed | Transaction Batch Strategy |
+|---|---|---|:---:|---|---|---|
+| `postgres-raw-sink` | `events.raw` | `raw_events` | **Yes** | Primary key (`event_id`) does not exist | `INSERT INTO raw_events (...)` | Bulk commit up to 5,000 records |
+| `postgres-raw-sink` | `events.raw` | `raw_events` | **Yes** | Primary key (`event_id`) already exists | Ignore duplicate / Log primary key violation | Transaction rollback & retry task |
+| `postgres-raw-sink` | `events.raw` | `raw_events` | **No** | N/A | Abort record processing; route to DLQ | Task paused on serialization error |
+| `postgres-enriched-sink` | `events.enriched` | `enriched_counts` | **Yes** | Composite key `(event_type, window_start)` exists | `UPSERT ON CONFLICT (...) DO UPDATE SET event_count = ...` | Single record atomic upsert |
+| `postgres-enriched-sink` | `events.enriched` | `enriched_counts` | **Yes** | Composite key does not exist | `INSERT INTO enriched_counts (...)` | Atomic insert |
+
+### 4. Kafka Streams Tumbling Window Truth Table
+
+| Event Timestamp (`occurred_at`) | Current Window Bounds `[T_start, T_end)` | Event Type Match | State Store Action | Stream Output (`events.enriched`) |
+|---|---|:---:|---|---|
+| `T_start <= t < T_end` | Active Current Window | `user.signup` | Increment counter in KTable state store | Update current window count state |
+| `t >= T_end` | Window Expired / Closed | `user.signup` | Finalize previous window state store record | Emit final `EnrichedCount` Avro record to `events.enriched` |
+| `t < T_start` (Late Arrival) | Window Already Closed | Any | Drop late event or emit to late-arrivals metric | No update to closed historical window |
+
+---
+
+## 🛑 8. Challenges Faced & Resolutions
 
 | # | Challenge / Issue | Root Cause | Solution Applied |
 |---|---|---|---|
@@ -289,7 +382,7 @@ graph LR
 
 ---
 
-## 🌐 7. Dedicated Ports & Credentials
+## 🌐 9. Dedicated Ports & Credentials
 
 | Service | Access URL | Credentials / Notes |
 |---|---|---|
@@ -301,7 +394,7 @@ graph LR
 
 ---
 
-## 🛠 8. Execution Commands
+## 🛠 10. Execution Commands
 
 ### Environment Setup
 ```bash
