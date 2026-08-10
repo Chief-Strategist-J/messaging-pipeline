@@ -4,116 +4,233 @@ A production-grade, enterprise event processing platform built to sustain high-t
 
 ---
 
-## 🏗 Architectural Overview & Pipelines
+## 🌐 1. End-to-End Network Pipeline
 
-The platform is designed around three distinct, decoupled architecture pipelines: **End-to-End Network Pipeline**, **Kafka Messaging Pipeline**, and **Data & Storage Pipeline**.
+The Network Pipeline governs edge traffic entry, SSL/TLS termination, request routing, rate limiting, payload size validation, and authentication before reaching internal application services.
 
-### 1. End-to-End Network Pipeline
-
-```mermaid
-flowchart TD
-    subgraph External Clients & Load Generators
-        Client["Client / k6 Load Generator"]
-    end
-
-    subgraph Ingress Layer [Traefik Gateway v3]
-        TRAEFIK_HTTP["HTTP Router (:27488)\n[ipAllowList, RateLimit: 200/500, BodyLimit: 10MB]"]
-        TRAEFIK_HTTPS["HTTPS Router (:27443)\n[TLS Options: Secure, Security Headers]"]
-    end
-
-    subgraph Platform Services
-        API["Go Ingestion API Cluster\n(:27480 / Internal :8080)\n[4.0 CPU / 1GB RAM]"]
-        GRAFANA["Grafana Dashboard\n(:27402 / Internal :3000)"]
-    end
-
-    Client -->|http://api.scaibu.localhost:27488| TRAEFIK_HTTP
-    Client -->|https://api.scaibu.localhost:27443| TRAEFIK_HTTPS
-    Client -->|http://grafana.scaibu.localhost:27488| TRAEFIK_HTTP
-
-    TRAEFIK_HTTP -->|Host: api.scaibu.localhost| API
-    TRAEFIK_HTTP -->|Host: grafana.scaibu.localhost\nBasicAuth Check| GRAFANA
-    TRAEFIK_HTTPS -->|Host: api.scaibu.localhost| API
-```
-
----
-
-### 2. Kafka Messaging & Streaming Pipeline
-
-```mermaid
-flowchart LR
-    subgraph Producer Layer
-        API["Go Ingestion API"]
-    end
-
-    subgraph Deduplication & Validation
-        REDIS[("Redis Cache (:27479)\nKey: dedup:event_id\nTTL: 24h")]
-        SCHEMA["Schema Registry (:27481)\n[Avro Schema Validation]"]
-    end
-
-    subgraph Streaming Core [Apache Kafka KRaft Cluster]
-        RAW_TOPIC[("Topic: events.raw\nPartitions: 12\nFormat: Avro")]
-        ENRICHED_TOPIC[("Topic: events.enriched\nPartitions: 12\nFormat: Avro")]
-    end
-
-    subgraph Stream Processing
-        STREAMS["Kotlin Kafka Streams\n[Tumbling Window: 1m\nGrouping by event_type]"]
-    end
-
-    API -->|1. Check / Set Dedup Key| REDIS
-    API -->|2. Validate Avro Schema| SCHEMA
-    API -->|3. Produce LZ4 Compressed Record| RAW_TOPIC
-    RAW_TOPIC -->|4. Consume Raw Events| STREAMS
-    STREAMS -->|5. Publish Aggregated Window Counts| ENRICHED_TOPIC
-```
-
----
-
-### 3. Data & Storage Pipeline
+### Detailed Network Flow Diagram
 
 ```mermaid
 flowchart TD
-    subgraph Kafka Topics
-        RAW[("events.raw")]
-        ENRICHED[("events.enriched")]
+    subgraph External Clients & Traffic Sources
+        HTTP_CLIENT["HTTP Client / Browser"]
+        HTTPS_CLIENT["HTTPS Secure Client"]
+        LOAD_TEST["k6 Load Generator"]
     end
 
-    subgraph Ingestion Sink [Kafka Connect JDBC Cluster]
-        CONNECT_RAW["Kafka Connect Sink: postgres-raw-sink\n[Batch Size: 5000, Tasks: 12]"]
-        CONNECT_ENRICHED["Kafka Connect Sink: postgres-enriched-sink\n[Upsert Mode]"]
+    subgraph Traefik Ingress Gateway [Port 27488 / 27443]
+        ENTRY_HTTP["HTTP EntryPoint (:27488 / Internal :80)"]
+        ENTRY_HTTPS["HTTPS EntryPoint (:27443 / Internal :443)"]
+        
+        subgraph Traefik Middleware Pipeline
+            REAL_IP["1. real-ip Middleware\n[ipAllowList: 127.0.0.1/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]"]
+            SEC_HDRS["2. security-headers Middleware\n[STS, FrameDeny, Nosniff, ReferrerPolicy]"]
+            RATE_LIMIT["3. api-ratelimit Middleware\n[Average: 200 req/s, Burst: 500 req/s]"]
+            BODY_LIMIT["4. api-body-limit Middleware\n[MaxRequestBodyBytes: 10 MB]"]
+            BASIC_AUTH["5. grafana-auth Middleware\n[BasicAuth Check: admin / Scaibu@123]"]
+        end
+
+        subgraph Traefik Routers
+            ROUTER_API_HTTP["Router: api-http\nRule: Host('api.scaibu.localhost')"]
+            ROUTER_API_HTTPS["Router: api-https\nRule: Host('api.scaibu.localhost') + TLS"]
+            ROUTER_DASHBOARD["Router: traefik-dashboard\nRule: PathPrefix('/dashboard') || PathPrefix('/api')"]
+            ROUTER_GRAFANA["Router: grafana-http\nRule: Host('grafana.scaibu.localhost')"]
+        end
     end
 
-    subgraph Persistent Storage [PostgreSQL 17 DB]
-        RAW_TABLE[("raw_events Table\n(event_id PK, event_type, occurred_at, payload, created_at)")]
-        ENRICHED_TABLE[("enriched_counts Table\n(event_type, window_start PK, event_count, updated_at)")]
+    subgraph Internal Service Network [event-platform_backbone]
+        API_CLUSTER["Go Ingestion API Cluster\n(:27480 / Internal :8080)\nReplicas: 1-4"]
+        GRAFANA_APP["Grafana Observability Dashboard\n(:27402 / Internal :3000)"]
+        TRAEFIK_API["Traefik Internal API & Dashboard\n(api@internal)"]
     end
 
-    RAW -->|Consume Avro Batches| CONNECT_RAW
-    ENRICHED -->|Consume Avro Batches| CONNECT_ENRICHED
-    CONNECT_RAW -->|Batch Insert| RAW_TABLE
-    CONNECT_ENRICHED -->|Upsert Count| ENRICHED_TABLE
+    HTTP_CLIENT -->|http://api.scaibu.localhost:27488/v1/events| ENTRY_HTTP
+    LOAD_TEST -->|http://api.scaibu.localhost:27488/v1/events| ENTRY_HTTP
+    HTTPS_CLIENT -->|https://api.scaibu.localhost:27443/v1/events| ENTRY_HTTPS
+    HTTP_CLIENT -->|http://localhost:27488/dashboard/| ENTRY_HTTP
+    HTTP_CLIENT -->|http://grafana.scaibu.localhost:27488/| ENTRY_HTTP
+
+    ENTRY_HTTP --> ROUTER_API_HTTP
+    ENTRY_HTTP --> ROUTER_DASHBOARD
+    ENTRY_HTTP --> ROUTER_GRAFANA
+    ENTRY_HTTPS --> ROUTER_API_HTTPS
+
+    ROUTER_API_HTTP --> REAL_IP --> SEC_HDRS --> RATE_LIMIT --> BODY_LIMIT --> API_CLUSTER
+    ROUTER_API_HTTPS --> REAL_IP --> SEC_HDRS --> RATE_LIMIT --> BODY_LIMIT --> API_CLUSTER
+    ROUTER_GRAFANA --> REAL_IP --> BASIC_AUTH --> SEC_HDRS --> GRAFANA_APP
+    ROUTER_DASHBOARD --> BASIC_AUTH --> TRAEFIK_API
 ```
+
+### Detailed Network Pipeline Stages
+1. **Edge Entry Points**: Port `27488` handles plaintext HTTP traffic; port `27443` handles encrypted TLS traffic with self-signed certificates or Let's Encrypt ACME.
+2. **Host Header Routing**: Traefik inspects the HTTP `Host` header (`api.scaibu.localhost` vs `grafana.scaibu.localhost`) to select the target virtual service.
+3. **Middleware Execution Chain**:
+   - `real-ip`: Validates client IP against authorized CIDR ranges.
+   - `security-headers`: Injects security headers (`X-Frame-Options: DENY`, `Strict-Transport-Security`).
+   - `api-ratelimit`: Enforces token-bucket rate limiting (200 average req/s, 500 burst capacity).
+   - `api-body-limit`: Rejects payloads exceeding 10MB to prevent memory exhaustion attacks.
+   - `grafana-auth`: Enforces HTTP BasicAuth for administrative tools (`admin:Scaibu@123`).
+
+---
+
+## ⚡ 2. Kafka Messaging & Streaming Pipeline
+
+The Messaging Pipeline guarantees high-throughput event validation, fast Redis deduplication, schema compatibility verification via Schema Registry, and real-time stream aggregation using Kafka Streams.
+
+### Detailed Messaging Flow Diagram
+
+```mermaid
+flowchart TD
+    subgraph Ingestion Request Handling
+        API_RECV["1. Ingestion API Receives Event\n[Payload JSON: event_id, event_type, occurred_at, payload]"]
+        EVENT_TYPE_CHECK{"2. Event Type\nRegistered?"}
+    end
+
+    subgraph Redis Deduplication Engine
+        REDIS_CHECK{"3. Redis SETNX\nKey: dedup:event_id\nTTL: 24 Hours"}
+        REDIS_CACHE[("Redis Container (:27479 / Internal :6379)\nKey: dedup:evt-1001")]
+    end
+
+    subgraph Schema Management
+        SCHEMA_FETCH["4. Fetch Avro Schema & Schema ID (id: 1)\nFrom Confluent Schema Registry (:27481)"]
+        AVRO_ENCODE["5. Encode Payload to Binary Avro\n[Magic Byte + Schema ID (4 bytes) + Binary Data]"]
+    end
+
+    subgraph Apache Kafka KRaft Core Cluster
+        KAFKA_PRODUCER["6. Kafka Producer\n[Batching: 8ms linger, Compression: LZ4, Acks: all]"]
+        RAW_TOPIC[("Topic: events.raw\nPartitions: 12\nKey: event_id | Value: Binary Avro RawEvent")]
+        ENRICHED_TOPIC[("Topic: events.enriched\nPartitions: 12\nKey: event_type | Value: Binary Avro EnrichedCount")]
+    end
+
+    subgraph Kafka Streams Real-Time Engine
+        KSTREAM_CONSUME["7. KStream Consumes events.raw"]
+        WINDOW_AGG["8. Group By event_type & Tumbling Window (1 minute)\nAggregate Event Counts"]
+        KSTREAM_PRODUCE["9. Produce Aggregated Window Totals to events.enriched"]
+    end
+
+    API_RECV --> EVENT_TYPE_CHECK
+    EVENT_TYPE_CHECK -->|No| REJECT_422["Return 422 Unprocessable Entity"]
+    EVENT_TYPE_CHECK -->|Yes| REDIS_CHECK
+    
+    REDIS_CHECK -->|Exists / Duplicate| DUPLICATE_202["Return 202 Accepted\n(Silently Dropped)"]
+    REDIS_CHECK -->|New / Unique| REDIS_CACHE
+    REDIS_CHECK -->|New / Unique| SCHEMA_FETCH
+    
+    SCHEMA_FETCH --> AVRO_ENCODE --> KAFKA_PRODUCER --> RAW_TOPIC
+    RAW_TOPIC --> KSTREAM_CONSUME --> WINDOW_AGG --> KSTREAM_PRODUCE --> ENRICHED_TOPIC
+```
+
+### Detailed Messaging Pipeline Stages
+1. **Event Type Validation**: The Ingestion API matches `event_type` against registered configurations ([`config/event-types.yaml`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/config/event-types.yaml)).
+2. **Atomic Redis Deduplication**: The API executes `SETNX dedup:<event_id> 1` with a 24-hour expiration. If the key already exists, the event is immediately treated as duplicate and acknowledged with `202 Accepted` without incurring Kafka write overhead.
+3. **Avro Serialization & Confluent Schema Registry**: The payload is serialized into compact binary Avro format prefixed with a 5-byte Confluent wire format header (`0x00` magic byte + 4-byte Schema ID `1`).
+4. **Partition Distribution & LZ4 Compression**: Events are produced to topic `events.raw` across 12 partitions using `event_id` as the partition key and LZ4 compression.
+5. **Real-Time Stream Processing**: The Kotlin Kafka Streams application consumes `events.raw`, applies a 1-minute tumbling window, groups by `event_type`, calculates counts, and outputs the window summary to `events.enriched`.
+
+---
+
+## 💾 3. Data & Storage Pipeline
+
+The Data & Storage Pipeline manages batch loading, schema evolution, primary key constraint resolution, and persistent relational storage in PostgreSQL 17 via Kafka Connect JDBC Sinks.
+
+### Detailed Data Flow Diagram
+
+```mermaid
+flowchart TD
+    subgraph Kafka Source Topics
+        TOPIC_RAW[("Topic: events.raw\n[Avro Formatted Raw Events]")]
+        TOPIC_ENRICHED[("Topic: events.enriched\n[Avro Formatted Window Counts]")]
+    end
+
+    subgraph Kafka Connect JDBC Sink Cluster [Port 27483 / Internal :8083]
+        subgraph Raw Sink Connector [postgres-raw-sink]
+            SINK_RAW_CONVERTER["AvroConverter\n[Schema Registry: http://schema-registry:8081]"]
+            SINK_RAW_BATCH["Batching Engine\n[Batch Size: 5000 records, Max Tasks: 12]"]
+            SINK_RAW_SQL["INSERT INTO raw_events\n(event_id, event_type, occurred_at, payload)"]
+        end
+
+        subgraph Enriched Sink Connector [postgres-enriched-sink]
+            SINK_ENRICHED_CONVERTER["AvroConverter\n[Schema Registry: http://schema-registry:8081]"]
+            SINK_ENRICHED_SQL["UPSERT INTO enriched_counts\n(event_type, window_start, event_count)\nON CONFLICT (event_type, window_start) DO UPDATE"]
+        end
+    end
+
+    subgraph PostgreSQL 17 Database [Port 27432 / Internal :5432]
+        subgraph Database: app | User: app | Pass: Scaibu@123
+            TABLE_RAW[("Table: raw_events\n---------------------------\nevent_id (VARCHAR 255) PK\nevent_type (VARCHAR 255)\noccurred_at (BIGINT)\npayload (TEXT)\ncreated_at (TIMESTAMPTZ)")]
+            TABLE_ENRICHED[("Table: enriched_counts\n---------------------------\nevent_type (VARCHAR 255) PK\nwindow_start (BIGINT) PK\nevent_count (BIGINT)\nupdated_at (TIMESTAMPTZ)")]
+            
+            INDEX_RAW_TYPE["Index: idx_raw_events_event_type"]
+            INDEX_RAW_TIME["Index: idx_raw_events_occurred_at"]
+            INDEX_ENRICHED_WIN["Index: idx_enriched_counts_window"]
+        end
+    end
+
+    TOPIC_RAW --> SINK_RAW_CONVERTER --> SINK_RAW_BATCH --> SINK_RAW_SQL --> TABLE_RAW
+    TOPIC_ENRICHED --> SINK_ENRICHED_CONVERTER --> SINK_ENRICHED_SQL --> TABLE_ENRICHED
+
+    TABLE_RAW --- INDEX_RAW_TYPE
+    TABLE_RAW --- INDEX_RAW_TIME
+    TABLE_ENRICHED --- INDEX_ENRICHED_WIN
+```
+
+### Detailed Storage Pipeline Stages
+1. **Connector Configuration Templates**: Connectors are loaded dynamically from templates ([`postgres-raw-sink.json.template`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/kafka/connectors/postgres-raw-sink.json.template) & [`postgres-enriched-sink.json.template`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/kafka/connectors/postgres-enriched-sink.json.template)) using environment variables (`POSTGRES_PASSWORD=Scaibu@123`).
+2. **Schema Registry Deserialization**: Kafka Connect JDBC Sink tasks use `AvroConverter` to resolve schema definitions dynamically from Schema Registry (`http://schema-registry:8081`).
+3. **High-Performance Micro-Batching**:
+   - `postgres-raw-sink`: Accumulates up to 5,000 records per batch across 12 parallel task workers, executing bulk SQL `INSERT` operations into table `raw_events`.
+   - `postgres-enriched-sink`: Reads window aggregates from `events.enriched` and performs SQL `UPSERT` operations into table `enriched_counts` using composite primary key `(event_type, window_start)`.
 
 ---
 
 ## 🔍 End-to-End Distributed Tracing & How to Read Traces
 
-### How Tracing Works
-Every incoming HTTP request is automatically injected with an OpenTelemetry (OTel) `traceparent` context header at the **Traefik Ingress Gateway**:
-1. **Traefik Ingress**: Initiates the root span `http.request` and records client IP, request path, status code, and latency.
-2. **Go Ingestion API**: Extracts context from incoming headers, creates child spans `http.ingest` and `kafka.produce`, and records Redis deduplication latencies.
-3. **OpenTelemetry Collector**: Receives gRPC spans on port `27417` and forwards them to **Grafana Tempo**.
-4. **Grafana & Prometheus**: Provide instant visual trace waterfall correlation.
+### How Tracing Works Across the Stack
 
-### How to Inspect Traces Step-by-Step
-1. Open Grafana at [http://grafana.scaibu.localhost:27488](http://grafana.scaibu.localhost:27488) (or direct port `http://localhost:27402`).
-2. Log in with Username `admin` and Password `Scaibu@123`.
-3. Go to **Explore** (left sidebar compass icon) -> Select Data Source **Tempo**.
-4. Click **Search** tab:
-   - **Service Name**: `ingestion-api` or `traefik`
-   - Click **Run Query**.
-5. Click on any Trace ID to open the **Trace Waterfall View**:
-   - Inspect total duration and per-span breakdown (`http.ingest` vs `kafka.produce`).
-   - Click individual spans to view attributes (`http.status_code`, `kafka.topic`, `event_type`).
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Traefik as Traefik Ingress Gateway
+    participant API as Go Ingestion API
+    participant OTel as OpenTelemetry Collector
+    participant Tempo as Grafana Tempo
+    participant Grafana as Grafana UI
+
+    Client->>Traefik: HTTP POST /v1/events (Host: api.scaibu.localhost)
+    Note over Traefik: Generates Trace ID & Root Span: http.request<br>Injects W3C Header: traceparent
+    Traefik->>API: Forward HTTP Request with traceparent header
+    Note over API: Extracts Context<br>Creates Child Span: http.ingest<br>Creates Child Span: kafka.produce
+    API-->>Traefik: 202 Accepted
+    Traefik-->>Client: 202 Accepted
+
+    Traefik-->>OTel: Export OTLP Spans (gRPC :4317)
+    API-->>OTel: Export OTLP Spans (gRPC :4317)
+    OTel-->>Tempo: Forward Batch Spans
+    Tempo-->>Grafana: Store & Index Trace ID
+```
+
+### Step-by-Step Guide to Read & Inspect Traces
+
+1. **Access Grafana Dashboard**:
+   - Open browser: [http://grafana.scaibu.localhost:27488](http://grafana.scaibu.localhost:27488) (or direct port `http://localhost:27402`).
+   - Credentials: Username `admin` | Password `Scaibu@123`.
+
+2. **Navigate to Explore Tab**:
+   - Click on the **Explore** icon (compass icon on left navigation menu).
+   - In the dropdown at top left, select **Tempo** as data source.
+
+3. **Search for Recent Spans**:
+   - Select the **Search** tab.
+   - Set **Service Name** to `ingestion-api` or `traefik`.
+   - Click **Run Query** at top right.
+
+4. **Analyze the Trace Waterfall**:
+   - Click any trace result from the list to expand the visual waterfall view:
+     - **Root Span (`http.request`)**: Shows total duration spent from client entry to gateway response.
+     - **Child Span (`http.ingest`)**: Shows Go HTTP handler processing time and Redis deduplication lookup duration.
+     - **Child Span (`kafka.produce`)**: Shows internal producer buffer time and network delivery latency to Kafka broker.
+   - Click on individual spans to view metadata tags (`http.status_code`, `kafka.topic`, `event_type`, `client_ip`).
 
 ---
 
@@ -121,8 +238,8 @@ Every incoming HTTP request is automatically injected with an OpenTelemetry (OTe
 
 | # | Challenge / Issue | Root Cause | Solution Applied |
 |---|---|---|---|
-| 1 | **Host Port Conflicts** | Standard ports (`5432`, `6379`, `9092`, `8080`, `3000`) collided with existing local services on developer machine. | Re-mapped all service host port bindings to dedicated `274xx` port range (`27488`, `27443`, `27432`, `27479`, `27492`, `27402`, etc.) in `.env` and `docker-compose.yml`. |
-| 2 | **Process Killing in Setup Script** | Previous setup script executed `kill -9` on listening processes, disrupting non-project host services. | Replaced generic process termination with non-destructive port conflict checks that abort safely if ports are occupied. |
+| 1 | **Host Port Conflicts** | Standard ports (`5432`, `6379`, `9092`, `8080`, `3000`) collided with pre-existing local services. | Re-mapped all service host port bindings to dedicated `274xx` port range (`27488`, `27443`, `27432`, `27479`, `27492`, `27402`, etc.) in `.env` and `docker-compose.yml`. |
+| 2 | **Process Termination in Setup** | Previous setup script executed `kill -9` on listening processes, stopping non-project host services. | Replaced generic process killing with non-destructive port conflict checks that abort safely if ports are occupied. |
 | 3 | **Traefik Dashboard 404** | Router rule required strict path routing (`/dashboard/`) and explicit entryPoint exposure without mandatory TLS. | Fixed [`dashboard.yml`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/traefik/dynamic/dashboard.yml) HTTP router rule `PathPrefix('/dashboard') \|\| PathPrefix('/api')` targeting `api@internal`. |
 | 4 | **Dynamic Configuration & Passwords** | Dynamic YAML files (e.g. `middlewares.yml`) did not support native environment variable interpolation, causing static password drift. | Created [`middlewares.yml.template`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/traefik/dynamic/middlewares.yml.template) and updated [`setup-dev-environment.sh`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/scripts/setup-dev-environment.sh) to dynamically compute htpasswd bcrypt hashes and render configs from `.env` (Password: `Scaibu@123`). |
 | 5 | **Kafka Connect Authentication Failure** | JDBC sink connectors used outdated password (`app`) in static JSON files while Postgres password was updated to `Scaibu@123`. | Created connector configuration templates (`postgres-raw-sink.json.template`, `postgres-enriched-sink.json.template`) and updated setup script to render connector JSON dynamically using `${POSTGRES_PASSWORD}`. |
@@ -131,8 +248,6 @@ Every incoming HTTP request is automatically injected with an OpenTelemetry (OTe
 ---
 
 ## 🌐 Active Dedicated Service Ports & Access Credentials
-
-All host ports are assigned to a dedicated **`274xx` unique port range** to avoid conflicts.
 
 ### 🔑 Web Interfaces & Access Credentials
 

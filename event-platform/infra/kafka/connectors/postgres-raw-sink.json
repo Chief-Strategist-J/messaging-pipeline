@@ -4,7 +4,7 @@
     "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
     "connection.url": "jdbc:postgresql://postgres:5432/app",
     "connection.user": "app",
-    "connection.password": "app",
+    "connection.password": "Scaibu@123",
     "topics": "events.raw",
     "table.name.format": "raw_events",
     "insert.mode": "insert",
