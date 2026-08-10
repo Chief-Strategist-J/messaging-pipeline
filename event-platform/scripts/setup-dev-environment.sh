@@ -159,8 +159,8 @@ DOMAIN_SUFFIX=scaibu.localhost
 API_HOST=api.scaibu.localhost
 GRAFANA_HOST=grafana.scaibu.localhost
 TRAEFIK_ACME_EMAIL=ops@scaibu.com
-API_RATE_LIMIT_AVERAGE=200
-API_RATE_LIMIT_BURST=500
+API_RATE_LIMIT_AVERAGE=2500
+API_RATE_LIMIT_BURST=5000
 API_MAX_REQUEST_BODY_BYTES=10485760
 TRUSTED_IPS=127.0.0.1/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 GRAFANA_TRAEFIK_BASICAUTH=${bcrypt_hash}
@@ -250,8 +250,8 @@ init_traefik_storage() {
         set +a
     fi
 
-    local avg="${API_RATE_LIMIT_AVERAGE:-200}"
-    local burst="${API_RATE_LIMIT_BURST:-500}"
+    local avg="${API_RATE_LIMIT_AVERAGE:-2500}"
+    local burst="${API_RATE_LIMIT_BURST:-5000}"
     local body_limit="${API_MAX_REQUEST_BODY_BYTES:-10485760}"
     local raw_auth
     raw_auth=$(htpasswd -nbB admin "Scaibu@123")

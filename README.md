@@ -60,7 +60,7 @@ graph LR
 - **Middlewares & Security Policy**:
   - `real-ip`: Enforces client IP matching against trusted CIDR ranges (`127.0.0.1/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
   - `security-headers`: Sets `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Strict-Transport-Security`.
-  - `api-ratelimit`: Token-bucket algorithm allowing 200 average requests/sec with burst limit of 500 requests/sec.
+  - `api-ratelimit`: Token-bucket algorithm allowing 2,500 average requests/sec with burst limit of 5,000 requests/sec.
   - `api-body-limit`: Hard payload threshold of 10 MB (`10,485,760 bytes`).
 
 ---
@@ -298,8 +298,8 @@ graph LR
 |---|---|---|---|
 | **HTTP Entrypoint Port** | `TRAEFIK_HTTP_PORT` | `27488` | Main public HTTP ingress port |
 | **HTTPS Entrypoint Port** | `TRAEFIK_HTTPS_PORT` | `27443` | Main public TLS/HTTPS ingress port |
-| **Rate Limit Average** | `API_RATE_LIMIT_AVERAGE` | `200` req/s | Token-bucket average sustained request rate |
-| **Rate Limit Burst** | `API_RATE_LIMIT_BURST` | `500` req/s | Token-bucket maximum instantaneous burst capacity |
+| **Rate Limit Average** | `API_RATE_LIMIT_AVERAGE` | `2500` req/s | Token-bucket average sustained request rate |
+| **Rate Limit Burst** | `API_RATE_LIMIT_BURST` | `5000` req/s | Token-bucket maximum instantaneous burst capacity |
 | **Max Payload Size** | `API_MAX_REQUEST_BODY_BYTES` | `10485760` (10 MB) | Maximum allowed HTTP request body size |
 | **Trusted CIDR IP Whitelist** | `TRUSTED_IPS` | `127.0.0.1/8,10.0.0.0/8...` | IP whitelist allowed through `real-ip` middleware |
 | **Grafana BasicAuth Hash** | `GRAFANA_TRAEFIK_BASICAUTH` | bcrypt hash | Password protection for administrative endpoints |
