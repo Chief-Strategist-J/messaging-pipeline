@@ -147,7 +147,7 @@ PROMETHEUS_PORT=27490
 
 GRAFANA_HOST_PORT=27402
 GRAFANA_CONTAINER_PORT=3000
-GF_AUTH_ANONYMOUS_ENABLED=false
+GF_AUTH_ANONYMOUS_ENABLED=true
 GF_SECURITY_ADMIN_USER=admin
 GF_SECURITY_ADMIN_PASSWORD=${admin_pass}
 
@@ -405,7 +405,7 @@ display_summary() {
     echo "║  PUBLIC ENDPOINTS (via Traefik)                                     ║"
     echo "║  Ingestion API:       http://api.scaibu.localhost/v1/events         ║"
     echo "║  API Health:          http://api.scaibu.localhost/healthz           ║"
-    echo "║  Grafana:             http://grafana.scaibu.localhost               ║"
+    echo "║  Grafana:             http://localhost:27402 (or http://grafana.scaibu.localhost) ║"
     echo "║                                                                     ║"
     echo "║  INTERNAL ENDPOINTS (direct access, dev only)                       ║"
     echo "║  Prometheus:          http://localhost:9090                         ║"

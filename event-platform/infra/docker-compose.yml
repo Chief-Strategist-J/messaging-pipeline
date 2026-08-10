@@ -225,12 +225,15 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    ports:
+      - "${GRAFANA_PORT:-27402}:3000"
     volumes:
       - "./grafana/provisioning:/etc/grafana/provisioning:ro"
     environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "${GF_AUTH_ANONYMOUS_ENABLED:-false}"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
       GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-changeme_grafana_admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-Scaibu@123}"
       GF_SERVER_ROOT_URL: "http://grafana.${DOMAIN_SUFFIX:-scaibu.localhost}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "false"
     depends_on: [prometheus, tempo]
