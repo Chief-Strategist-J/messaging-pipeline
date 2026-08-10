@@ -19,6 +19,7 @@ import requests
 API_BASE = os.getenv("INGESTION_API_URL", "http://localhost:27488")
 EVENTS_URL = f"{API_BASE}/v1/events"
 HEALTHZ_URL = f"{API_BASE}/healthz"
+HEADERS = {"Host": "api.scaibu.localhost"}
 PG_DSN = os.getenv("PG_DSN", "dbname=app user=app password=Scaibu@123 host=localhost port=27432")
 
 LOADTEST_DIR = os.path.join(os.path.dirname(__file__), "..", "loadtest")
@@ -57,7 +58,7 @@ def pg_conn():
 @allure.severity(allure.severity_level.BLOCKER)
 def test_health_check():
     """Hit /healthz — assert HTTP 200."""
-    resp = requests.get(HEALTHZ_URL, timeout=5)
+    resp = requests.get(HEALTHZ_URL, headers=HEADERS, timeout=5)
     allure.attach(
         f"Status: {resp.status_code}\nBody: {resp.text}",
         name="healthz_response",
@@ -72,7 +73,7 @@ def test_health_check():
 def test_single_event_ingestion(pg_conn):
     """Post one 500KB event, assert 202, then verify it reaches Postgres."""
     event = make_event()
-    resp = requests.post(EVENTS_URL, json=event, timeout=10)
+    resp = requests.post(EVENTS_URL, json=event, headers=HEADERS, timeout=10)
     allure.attach(
         json.dumps({"status": resp.status_code, "event_id": event["event_id"]}),
         name="ingestion_response",
@@ -115,7 +116,7 @@ def test_single_event_ingestion(pg_conn):
 def test_invalid_event_type_rejected():
     """Post an unregistered event_type, assert 422."""
     event = make_event(event_type="nonexistent_event_type_xyz")
-    resp = requests.post(EVENTS_URL, json=event, timeout=5)
+    resp = requests.post(EVENTS_URL, json=event, headers=HEADERS, timeout=5)
     allure.attach(
         f"Status: {resp.status_code}\nBody: {resp.text}",
         name="rejection_response",
@@ -131,7 +132,7 @@ def test_duplicate_event_deduped():
     """Post the same event_id twice; first should be 202, second 200."""
     event = make_event()
 
-    resp1 = requests.post(EVENTS_URL, json=event, timeout=30)
+    resp1 = requests.post(EVENTS_URL, json=event, headers=HEADERS, timeout=30)
     allure.attach(
         f"First POST status: {resp1.status_code}",
         name="first_post",
@@ -139,7 +140,7 @@ def test_duplicate_event_deduped():
     )
     assert resp1.status_code == 202, f"First POST expected 202, got {resp1.status_code}"
 
-    resp2 = requests.post(EVENTS_URL, json=event, timeout=30)
+    resp2 = requests.post(EVENTS_URL, json=event, headers=HEADERS, timeout=30)
     allure.attach(
         f"Second POST status: {resp2.status_code}",
         name="second_post",
@@ -157,7 +158,7 @@ def test_malformed_json_rejected():
     resp = requests.post(
         EVENTS_URL,
         data="this is not json{{{",
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "Host": "api.scaibu.localhost"},
         timeout=5,
     )
     allure.attach(
@@ -175,7 +176,7 @@ def test_missing_event_id_rejected():
     """Post event with empty event_id, assert 422."""
     event = make_event()
     event["event_id"] = ""
-    resp = requests.post(EVENTS_URL, json=event, timeout=5)
+    resp = requests.post(EVENTS_URL, json=event, headers=HEADERS, timeout=5)
     allure.attach(
         f"Status: {resp.status_code}\nBody: {resp.text}",
         name="missing_id_response",

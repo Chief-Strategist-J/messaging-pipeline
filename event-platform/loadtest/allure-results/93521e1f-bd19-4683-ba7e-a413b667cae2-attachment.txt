@@ -1,0 +1,13 @@
+=== 2026-08-10T14:25:03 (poll #1) ===
+NAME                               CPU %     MEM USAGE / LIMIT     NET I/O
+event-platform-ingestion-api-1     0.00%     8.285MiB / 1GiB       179kB / 89.6kB
+event-platform-connect-1           1.66%     212.5MiB / 15.49GiB   22.7MB / 24.8MB
+event-platform-traefik-1           9.21%     49.71MiB / 15.49GiB   12.2MB / 12.9MB
+event-platform-schema-registry-1   0.21%     116.5MiB / 15.49GiB   1.57MB / 1.47MB
+event-platform-otel-collector-1    0.03%     29.77MiB / 15.49GiB   233kB / 185kB
+event-platform-grafana-1           0.73%     214.9MiB / 15.49GiB   22.6MB / 11.1MB
+event-platform-redis-1             6.10%     3.551MiB / 15.49GiB   59.1kB / 4.03kB
+event-platform-postgres-1          0.00%     16.21MiB / 15.49GiB   66kB / 8.02kB
+event-platform-tempo-1             0.21%     58.77MiB / 15.49GiB   648kB / 159kB
+event-platform-kafka-1             168.09%   740.8MiB / 15.49GiB   26.3MB / 24.2MB
+event-platform-prometheus-1        0.54%     52.03MiB / 15.49GiB   1.35MB / 172kB
