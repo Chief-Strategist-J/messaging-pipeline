@@ -16,8 +16,8 @@ ENRICHED_SINK_CONFIG="$INFRA_DIR/kafka/connectors/postgres-enriched-sink.json"
 
 PROJECT_NAME="event-platform"
 KAFKA_BOOTSTRAP="localhost:9092"
-SCHEMA_REGISTRY_URL="http://localhost:8081"
-KAFKA_CONNECT_URL="http://localhost:8083"
+SCHEMA_REGISTRY_URL="http://localhost:27481"
+KAFKA_CONNECT_URL="http://localhost:27483"
 POSTGRES_CONTAINER="${PROJECT_NAME}-postgres-1"
 KAFKA_CONTAINER="${PROJECT_NAME}-kafka-1"
 
@@ -39,6 +39,23 @@ log()  { echo "  $1"; }
 ok()   { echo "  ✅ $1"; }
 fail() { echo "  ❌ $1"; exit 1; }
 step() { echo ""; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; echo "  $1"; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; }
+
+retry_cmd() {
+    local label="$1"
+    local attempts="$2"
+    local delay="$3"
+    shift 3
+    local count=1
+
+    until "$@"; do
+        if [ "$count" -ge "$attempts" ]; then
+            fail "$label failed after $attempts attempts."
+        fi
+        log "⚠️  $label failed (attempt $count/$attempts). Retrying in ${delay}s..."
+        sleep "$delay"
+        count=$((count + 1))
+    done
+}
 
 wait_for() {
     local name="$1"
@@ -91,8 +108,7 @@ recreate_env_file() {
     step "STEP 2 — Recreating infra/.env clean file"
 
     log "Wiping and generating clean $ENV_FILE from scratch..."
-    local admin_pass
-    admin_pass="$(openssl rand -base64 16)"
+    local admin_pass="Scaibu@123"
     local bcrypt_hash
     bcrypt_hash=$(htpasswd -nbB admin "$admin_pass" | sed 's/\$/\$\$/g')
 
@@ -101,40 +117,42 @@ COMPOSE_PROJECT_NAME=event-platform
 
 POSTGRES_DB=app
 POSTGRES_USER=app
-POSTGRES_PASSWORD=app
-POSTGRES_PORT=5432
+POSTGRES_PASSWORD=${admin_pass}
+POSTGRES_PORT=27432
 
-REDIS_PORT=6379
+REDIS_PORT=27479
 
 KAFKA_NODE_ID=1
-KAFKA_INTERNAL_PORT=9092
-KAFKA_CONTROLLER_PORT=9093
+KAFKA_INTERNAL_PORT=27492
+KAFKA_CONTROLLER_PORT=27493
 KAFKA_OFFSETS_REPLICATION_FACTOR=1
 
-SCHEMA_REGISTRY_PORT=8081
+SCHEMA_REGISTRY_PORT=27481
 
-CONNECT_PORT=8083
+CONNECT_PORT=27483
 CONNECT_GROUP_ID=connect-cluster
 CONNECT_CONFIG_TOPIC=connect_configs
 CONNECT_OFFSET_TOPIC=connect_offsets
 CONNECT_STATUS_TOPIC=connect_statuses
 
-INGESTION_API_PORT=8080
+INGESTION_API_PORT=27480
 INGESTION_API_REPLICAS=1
 INGESTION_API_CPU_LIMIT=4.0
 INGESTION_API_MEM_LIMIT=1G
 
-OTEL_GRPC_PORT=4317
-OTEL_HTTP_PORT=4318
+OTEL_GRPC_PORT=27417
+OTEL_HTTP_PORT=27418
 
-PROMETHEUS_PORT=9090
+PROMETHEUS_PORT=27490
 
-GRAFANA_HOST_PORT=3002
+GRAFANA_HOST_PORT=27402
 GRAFANA_CONTAINER_PORT=3000
 GF_AUTH_ANONYMOUS_ENABLED=false
 GF_SECURITY_ADMIN_USER=admin
 GF_SECURITY_ADMIN_PASSWORD=${admin_pass}
 
+TRAEFIK_HTTP_PORT=27488
+TRAEFIK_HTTPS_PORT=27443
 TRAEFIK_IMAGE=traefik:v3.7.10
 TRAEFIK_LOG_LEVEL=INFO
 DOMAIN_SUFFIX=scaibu.localhost
@@ -144,6 +162,7 @@ TRAEFIK_ACME_EMAIL=ops@scaibu.com
 API_RATE_LIMIT_AVERAGE=200
 API_RATE_LIMIT_BURST=500
 API_MAX_REQUEST_BODY_BYTES=10485760
+TRUSTED_IPS=127.0.0.1/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 GRAFANA_TRAEFIK_BASICAUTH=${bcrypt_hash}
 TRAEFIK_DIAL_TIMEOUT=5s
 TRAEFIK_RESPONSE_HEADER_TIMEOUT=30s
@@ -202,7 +221,7 @@ free_ports() {
 }
 
 init_traefik_storage() {
-    step "STEP 5 — Initialising Traefik certificate storage"
+    step "STEP 5 — Initialising Traefik certificate storage and dynamic configs"
 
     mkdir -p "$INFRA_DIR/traefik/acme"
     mkdir -p "$INFRA_DIR/traefik/certs"
@@ -223,6 +242,28 @@ init_traefik_storage() {
         2>/dev/null
     chmod 600 "$INFRA_DIR/traefik/certs/local-selfsigned.key"
     ok "Self-signed certificate generated at $INFRA_DIR/traefik/certs/"
+
+    log "Rendering dynamic $INFRA_DIR/traefik/dynamic/middlewares.yml from template..."
+    if [ -f "$ENV_FILE" ]; then
+        set -a
+        source "$ENV_FILE"
+        set +a
+    fi
+
+    local avg="${API_RATE_LIMIT_AVERAGE:-200}"
+    local burst="${API_RATE_LIMIT_BURST:-500}"
+    local body_limit="${API_MAX_REQUEST_BODY_BYTES:-10485760}"
+    local raw_auth
+    raw_auth=$(htpasswd -nbB admin "Scaibu@123")
+
+    cat "$INFRA_DIR/traefik/dynamic/middlewares.yml.template" \
+        | sed "s|\${API_RATE_LIMIT_AVERAGE}|$avg|g" \
+        | sed "s|\${API_RATE_LIMIT_BURST}|$burst|g" \
+        | sed "s|\${API_MAX_REQUEST_BODY_BYTES}|$body_limit|g" \
+        | sed "s|\${GRAFANA_TRAEFIK_BASICAUTH}|$raw_auth|g" \
+        > "$INFRA_DIR/traefik/dynamic/middlewares.yml"
+
+    ok "Dynamic middlewares.yml rendered from template"
 }
 
 configure_hosts() {
@@ -244,7 +285,7 @@ build_and_start() {
     step "STEP 7 — Building and starting all services"
 
     cd "$PROJECT_ROOT"
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
+    retry_cmd "Docker Compose build and startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
 
     ok "All containers started"
 }
@@ -262,10 +303,10 @@ wait_for_core_services() {
         "curl -sf http://localhost:8899/ping" 2 30
 
     wait_for "ingestion-api (via Traefik)" \
-        "curl -sf http://api.scaibu.localhost/healthz" 3 30
+        "curl -sf -H 'Host: api.scaibu.localhost' http://localhost:27488/healthz" 3 30
 
     wait_for "Grafana (via Traefik)" \
-        "curl -sf http://grafana.scaibu.localhost/api/health -u admin:\$(grep '^GF_SECURITY_ADMIN_PASSWORD=' $ENV_FILE | cut -d= -f2-)" 5 30
+        "curl -sf -o /dev/null -w '%{http_code}' -H 'Host: grafana.scaibu.localhost' http://localhost:27488/ -u admin:Scaibu@123 | grep -E '200|302'" 3 30
 }
 
 migrate_postgres() {
@@ -276,26 +317,28 @@ migrate_postgres() {
         return
     fi
 
-    docker exec -i "$POSTGRES_CONTAINER" psql -U app -d app < "$MIGRATION_SQL"
+    retry_cmd "PostgreSQL schema migration" 5 3 bash -c "docker exec -i '$POSTGRES_CONTAINER' psql -U app -d app < '$MIGRATION_SQL'"
     ok "PostgreSQL schema migration applied"
 }
 
 provision_kafka_topics() {
     step "STEP 10 — Provisioning Kafka topics"
 
-    docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server "$KAFKA_BOOTSTRAP" \
-        --create --topic "$TOPIC_EVENTS_RAW" \
-        --partitions "$TOPIC_PARTITIONS" \
-        --replication-factor "$TOPIC_REPLICATION_FACTOR" \
-        --if-not-exists
+    retry_cmd "Kafka topic creation ($TOPIC_EVENTS_RAW)" 5 3 \
+        docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
+            --bootstrap-server "$KAFKA_BOOTSTRAP" \
+            --create --topic "$TOPIC_EVENTS_RAW" \
+            --partitions "$TOPIC_PARTITIONS" \
+            --replication-factor "$TOPIC_REPLICATION_FACTOR" \
+            --if-not-exists
 
-    docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
-        --bootstrap-server "$KAFKA_BOOTSTRAP" \
-        --create --topic "$TOPIC_EVENTS_ENRICHED" \
-        --partitions "$TOPIC_PARTITIONS" \
-        --replication-factor "$TOPIC_REPLICATION_FACTOR" \
-        --if-not-exists
+    retry_cmd "Kafka topic creation ($TOPIC_EVENTS_ENRICHED)" 5 3 \
+        docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
+            --bootstrap-server "$KAFKA_BOOTSTRAP" \
+            --create --topic "$TOPIC_EVENTS_ENRICHED" \
+            --partitions "$TOPIC_PARTITIONS" \
+            --replication-factor "$TOPIC_REPLICATION_FACTOR" \
+            --if-not-exists
 
     ok "Kafka topics provisioned: $TOPIC_EVENTS_RAW, $TOPIC_EVENTS_ENRICHED"
 }
@@ -305,15 +348,17 @@ register_avro_schemas() {
 
     wait_for "Schema Registry" "curl -sf $SCHEMA_REGISTRY_URL/subjects" 2 30
 
-    curl -sf -X POST \
-        -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-        --data "{\"schema\": \"${RAW_AVRO_SCHEMA}\"}" \
-        "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_RAW}-value/versions" >/dev/null
+    retry_cmd "Avro schema registration ($TOPIC_EVENTS_RAW)" 5 3 \
+        curl -sf -X POST \
+            -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+            --data "{\"schema\": \"${RAW_AVRO_SCHEMA}\"}" \
+            "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_RAW}-value/versions"
 
-    curl -sf -X POST \
-        -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-        --data "{\"schema\": \"${ENRICHED_AVRO_SCHEMA}\"}" \
-        "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_ENRICHED}-value/versions" >/dev/null
+    retry_cmd "Avro schema registration ($TOPIC_EVENTS_ENRICHED)" 5 3 \
+        curl -sf -X POST \
+            -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+            --data "{\"schema\": \"${ENRICHED_AVRO_SCHEMA}\"}" \
+            "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_ENRICHED}-value/versions"
 
     ok "Avro schemas registered for $TOPIC_EVENTS_RAW and $TOPIC_EVENTS_ENRICHED"
 }
@@ -324,18 +369,16 @@ register_kafka_connectors() {
     wait_for "Kafka Connect" "curl -sf $KAFKA_CONNECT_URL/connectors" 3 30
 
     if [ -f "$RAW_SINK_CONFIG" ]; then
-        curl -sf -X POST -H "Content-Type: application/json" \
-            --data @"$RAW_SINK_CONFIG" \
-            "$KAFKA_CONNECT_URL/connectors" >/dev/null || true
+        retry_cmd "Postgres raw sink registration" 5 3 \
+            bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data @'$RAW_SINK_CONFIG' '$KAFKA_CONNECT_URL/connectors'); [[ \$code =~ ^(200|201|409)\$ ]]"
         ok "Registered: postgres-raw-sink"
     else
         log "Skipping raw sink — $RAW_SINK_CONFIG not found"
     fi
 
     if [ -f "$ENRICHED_SINK_CONFIG" ]; then
-        curl -sf -X POST -H "Content-Type: application/json" \
-            --data @"$ENRICHED_SINK_CONFIG" \
-            "$KAFKA_CONNECT_URL/connectors" >/dev/null || true
+        retry_cmd "Postgres enriched sink registration" 5 3 \
+            bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data @'$ENRICHED_SINK_CONFIG' '$KAFKA_CONNECT_URL/connectors'); [[ \$code =~ ^(200|201|409)\$ ]]"
         ok "Registered: postgres-enriched-sink"
     else
         log "Skipping enriched sink — $ENRICHED_SINK_CONFIG not found"

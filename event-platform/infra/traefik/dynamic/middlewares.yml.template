@@ -23,8 +23,8 @@ http:
 
     api-ratelimit:
       rateLimit:
-        average: 200
-        burst: 500
+        average: ${API_RATE_LIMIT_AVERAGE}
+        burst: ${API_RATE_LIMIT_BURST}
         period: "1s"
         sourceCriterion:
           ipStrategy:
@@ -32,7 +32,7 @@ http:
 
     api-body-limit:
       buffering:
-        maxRequestBodyBytes: 10485760
+        maxRequestBodyBytes: ${API_MAX_REQUEST_BODY_BYTES}
         memRequestBodyBytes: 2097152
 
     api-retry:
@@ -50,7 +50,7 @@ http:
     grafana-auth:
       basicAuth:
         users:
-          - "admin:$2y$05$U4knt202RecnpXilfonkmeYTGv37cAF/GzaV3eIrUvGC9ZN9dtNCG"
+          - "${GRAFANA_TRAEFIK_BASICAUTH}"
         removeHeader: true
 
     grafana-security-headers:

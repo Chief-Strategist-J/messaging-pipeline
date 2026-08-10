@@ -31,7 +31,7 @@ entryPoints:
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    network: backbone
+    network: event-platform_backbone
     exposedByDefault: false
     watch: true
     constraints: "Label(`traefik.project`, `event-platform`)"
