@@ -368,6 +368,15 @@ register_kafka_connectors() {
 
     wait_for "Kafka Connect" "curl -sf $KAFKA_CONNECT_URL/connectors" 3 30
 
+    local pg_pass="${POSTGRES_PASSWORD:-Scaibu@123}"
+
+    if [ -f "$RAW_SINK_CONFIG.template" ]; then
+        sed "s|\${POSTGRES_PASSWORD}|$pg_pass|g" "$RAW_SINK_CONFIG.template" > "$RAW_SINK_CONFIG"
+    fi
+    if [ -f "$ENRICHED_SINK_CONFIG.template" ]; then
+        sed "s|\${POSTGRES_PASSWORD}|$pg_pass|g" "$ENRICHED_SINK_CONFIG.template" > "$ENRICHED_SINK_CONFIG"
+    fi
+
     if [ -f "$RAW_SINK_CONFIG" ]; then
         retry_cmd "Postgres raw sink registration" 5 3 \
             bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data @'$RAW_SINK_CONFIG' '$KAFKA_CONNECT_URL/connectors'); [[ \$code =~ ^(200|201|409)\$ ]]"

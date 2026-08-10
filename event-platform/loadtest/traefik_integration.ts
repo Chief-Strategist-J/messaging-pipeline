@@ -44,7 +44,7 @@ import { Options } from 'k6/options';
 // Configuration
 // ---------------------------------------------------------------------------
 const API_HOST: string = __ENV.API_HOST || 'host.docker.internal';
-const API_PORT: string = __ENV.API_PORT || '80';
+const API_PORT: string = __ENV.API_PORT || '27488';
 const PROTOCOL: string = __ENV.PROTOCOL || 'http';
 const BASE_URL: string = `${PROTOCOL}://${API_HOST}:${API_PORT === '80' ? '' : ':' + API_PORT}`;
 const ENDPOINT: string = `${BASE_URL}/v1/events`;

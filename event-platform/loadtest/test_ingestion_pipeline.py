@@ -16,10 +16,10 @@ import psycopg2
 import pytest
 import requests
 
-API_BASE = os.getenv("INGESTION_API_URL", "http://localhost:8080")
+API_BASE = os.getenv("INGESTION_API_URL", "http://localhost:27488")
 EVENTS_URL = f"{API_BASE}/v1/events"
 HEALTHZ_URL = f"{API_BASE}/healthz"
-PG_DSN = os.getenv("PG_DSN", "dbname=app user=app password=app host=localhost port=5432")
+PG_DSN = os.getenv("PG_DSN", "dbname=app user=app password=Scaibu@123 host=localhost port=27432")
 
 LOADTEST_DIR = os.path.join(os.path.dirname(__file__), "..", "loadtest")
 K6_SCRIPT = os.path.join(LOADTEST_DIR, "ingestion_10k_loadtest.ts")

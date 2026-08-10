@@ -1,0 +1,19 @@
+{
+  "name": "postgres-enriched-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:postgresql://postgres:5432/app",
+    "connection.user": "app",
+    "connection.password": "${POSTGRES_PASSWORD}",
+    "topics": "events.enriched",
+    "table.name.format": "enriched_counts",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "event_type,window_start",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081"
+  }
+}

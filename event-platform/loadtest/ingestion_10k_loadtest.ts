@@ -32,8 +32,8 @@ export default function (): void {
     payload: PRE_BUILT_PAYLOAD_BODY,
   });
 
-  const res = http.post('http://host.docker.internal:8080/v1/events', payload, {
-    headers: { 'Content-Type': 'application/json' },
+  const res = http.post('http://host.docker.internal:27488/v1/events', payload, {
+    headers: { 'Content-Type': 'application/json', 'Host': 'api.scaibu.localhost' },
     timeout: '15s',
   });
 

@@ -1,0 +1,20 @@
+{
+  "name": "postgres-raw-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:postgresql://postgres:5432/app",
+    "connection.user": "app",
+    "connection.password": "${POSTGRES_PASSWORD}",
+    "topics": "events.raw",
+    "table.name.format": "raw_events",
+    "insert.mode": "insert",
+    "pk.mode": "none",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "tasks.max": "12",
+    "batch.size": "5000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081"
+  }
+}
