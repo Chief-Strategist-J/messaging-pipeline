@@ -12,68 +12,71 @@ The event processing platform combines an edge reverse-proxy gateway, a high-per
 
 ```mermaid
 flowchart TD
-    subgraph Edge ["1. Edge Ingress Layer (Traefik v3)"]
+    subgraph Clients["1. External Traffic Sources"]
         CLIENT["HTTP / HTTPS Clients & Load Generators"]
-        TRAEFIK_HTTP["HTTP EntryPoint (:27488 / :80)"]
-        TRAEFIK_HTTPS["HTTPS EntryPoint (:27443 / :443)"]
-        
-        subgraph Middlewares ["Traefik Security & Traffic Controls"]
-            IP_ALLOW["real-ip<br/>CIDR Whitelist"]
-            SEC_HEADERS["security-headers<br/>HSTS, FrameDeny, Nosniff"]
-            RATE_LIM["api-ratelimit<br/>200 req/s avg, 500 burst"]
-            BODY_LIM["api-body-limit<br/>10 MB Max Body Size"]
-            AUTH_CHK["grafana-auth / dashboard-auth<br/>BasicAuth Authentication"]
-        end
     end
 
-    subgraph AppLayer ["2. Ingestion & Validation Engine"]
-        API_APP["Go Ingestion API Cluster<br/>(Ports: 27480 / 8080)<br/>Replicas: 1 to 4"]
-        REDIS_CACHE[("Redis Cache (:27479)<br/>Key: dedup:event_id<br/>TTL: 24 Hours")]
-        SCHEMA_REG[("Confluent Schema Registry<br/>(:27481 / :8081)<br/>Avro Schemas")]
+    subgraph Edge["2. Traefik Edge Ingress Layer"]
+        TRAEFIK_HTTP["HTTP EntryPoint (:27488)"]
+        TRAEFIK_HTTPS["HTTPS EntryPoint (:27443)"]
     end
 
-    subgraph Streaming ["3. Messaging & Stream Processing Engine"]
-        KAFKA_RAW[("Kafka Topic: events.raw<br/>Partitions: 12<br/>LZ4 Compressed Raw Events")]
-        KSTREAMS["Kotlin Kafka Streams Engine<br/>1-Min Tumbling Window Aggregator"]
-        KAFKA_ENRICHED[("Kafka Topic: events.enriched<br/>Partitions: 12<br/>Window Aggregate Totals")]
+    subgraph Security["3. Security & Traffic Control Middlewares"]
+        IP_ALLOW["real-ip (CIDR Whitelist)"]
+        SEC_HEADERS["security-headers (HSTS, FrameDeny)"]
+        RATE_LIM["api-ratelimit (200 avg, 500 burst)"]
+        BODY_LIM["api-body-limit (10 MB Max Size)"]
+        AUTH_CHK["grafana-auth (BasicAuth Check)"]
     end
 
-    subgraph Storage ["4. Persistence & Database Archiving"]
-        CONNECT_RAW["Kafka Connect: postgres-raw-sink<br/>Bulk INSERT (Batch: 5000)"]
-        CONNECT_ENRICHED["Kafka Connect: postgres-enriched-sink<br/>ON CONFLICT UPSERT"]
-        POSTGRES_DB[("PostgreSQL 17 Database (:27432)<br/>Tables: raw_events & enriched_counts")]
+    subgraph Ingestion["4. Ingestion & Validation Engine"]
+        API_APP["Go Ingestion API Cluster (:27480)"]
+        REDIS_CACHE[("Redis Deduplication Cache (:27479)")]
+        SCHEMA_REG[("Confluent Schema Registry (:27481)")]
     end
 
-    subgraph Telemetry ["5. Distributed Tracing & Observability Stack"]
-        OTEL_COLL["OpenTelemetry Collector (:27417 / :27418)"]
-        TEMPO["Grafana Tempo<br/>Distributed Trace Storage"]
-        PROMETHEUS["Prometheus Server (:27490)<br/>Metrics Scraper"]
-        GRAFANA["Grafana Dashboards (:27402 / :3000)"]
+    subgraph Streaming["5. Streaming & Processing Engine"]
+        KAFKA_RAW[("Kafka Topic: events.raw (12 Partitions)")]
+        KSTREAMS["Kotlin Kafka Streams Engine"]
+        KAFKA_ENRICHED[("Kafka Topic: events.enriched (12 Partitions)")]
     end
 
-    CLIENT -->|http://api.scaibu.localhost:27488| TRAEFIK_HTTP
-    CLIENT -->|https://api.scaibu.localhost:27443| TRAEFIK_HTTPS
+    subgraph Persistence["6. Database Persistence Engine"]
+        CONNECT_RAW["Kafka Connect: postgres-raw-sink"]
+        CONNECT_ENRICHED["Kafka Connect: postgres-enriched-sink"]
+        POSTGRES_DB[("PostgreSQL 17 Database (:27432)")]
+    end
+
+    subgraph Observability["7. Observability Stack"]
+        OTEL_COLL["OpenTelemetry Collector (:27417)"]
+        TEMPO["Grafana Tempo (Distributed Tracing)"]
+        PROMETHEUS["Prometheus Server (:27490)"]
+        GRAFANA["Grafana Dashboards (:27402)"]
+    end
+
+    CLIENT --> TRAEFIK_HTTP
+    CLIENT --> TRAEFIK_HTTPS
     TRAEFIK_HTTP --> IP_ALLOW
     TRAEFIK_HTTPS --> IP_ALLOW
     IP_ALLOW --> SEC_HEADERS --> RATE_LIM --> BODY_LIM --> API_APP
     TRAEFIK_HTTP --> AUTH_CHK --> GRAFANA
 
-    API_APP -->|1. Deduplication Check| REDIS_CACHE
-    API_APP -->|2. Fetch Schema ID| SCHEMA_REG
-    API_APP -->|3. Produce Avro Binary| KAFKA_RAW
+    API_APP -->|1. Dedup Check| REDIS_CACHE
+    API_APP -->|2. Fetch Schema| SCHEMA_REG
+    API_APP -->|3. Produce Avro| KAFKA_RAW
 
     KAFKA_RAW --> KSTREAMS
-    KSTREAMS -->|Produce Aggregates| KAFKA_ENRICHED
+    KSTREAMS -->|Aggregate Window Totals| KAFKA_ENRICHED
 
     KAFKA_RAW --> CONNECT_RAW --> POSTGRES_DB
     KAFKA_ENRICHED --> CONNECT_ENRICHED --> POSTGRES_DB
 
-    API_APP -.->|OTLP gRPC| OTEL_COLL
-    TRAEFIK_HTTP -.->|OTLP gRPC| OTEL_COLL
-    OTEL_COLL -.-> TEMPO
-    PROMETHEUS -.->|Scrape Metrics| API_APP
-    TEMPO -.-> GRAFANA
-    PROMETHEUS -.-> GRAFANA
+    API_APP -->|OTLP Traces| OTEL_COLL
+    TRAEFIK_HTTP -->|OTLP Traces| OTEL_COLL
+    OTEL_COLL --> TEMPO
+    PROMETHEUS -->|Scrape Metrics| API_APP
+    TEMPO --> GRAFANA
+    PROMETHEUS --> GRAFANA
 ```
 
 ---
@@ -97,10 +100,10 @@ sequenceDiagram
     participant Postgres as PostgreSQL 17
 
     Client->>Traefik: POST /v1/events (Host: api.scaibu.localhost)
-    Note over Traefik: Generates W3C traceparent header<br/>Applies Rate Limiting & Security Filters
+    Note over Traefik: Injects W3C traceparent header & checks Rate Limit
     Traefik->>API: Forward HTTP Request + Tracing Context
     
-    API->>Redis: SETNX dedup:<event_id> 1 (TTL 24h)
+    API->>Redis: SETNX dedup:event_id 1 (TTL 24h)
     alt Event ID already exists (Duplicate)
         Redis-->>API: 0 (Key exists)
         API-->>Traefik: HTTP 202 Accepted (Duplicate dropped)
@@ -109,23 +112,21 @@ sequenceDiagram
         Redis-->>API: 1 (Key set successfully)
         API->>SchemaReg: Fetch/Verify Avro Schema ID
         SchemaReg-->>API: Schema ID 1
-        API->>API: Encode Payload to Avro Binary (Wire Format)
-        API->>Kafka: Produce Avro Message to topic 'events.raw'
+        API->>API: Encode Payload to Binary Avro Wire Format
+        API->>Kafka: Produce Avro Message to 'events.raw'
         Kafka-->>API: ACK (Offset committed)
         API-->>Traefik: HTTP 202 Accepted
         Traefik-->>Client: HTTP 202 Accepted
     end
 
-    par Real-Time Stream Aggregation
-        Kafka->>KStreams: Consume events.raw stream
-        Note over KStreams: 1-Minute Tumbling Window<br/>Group by event_type & aggregate count
-        KStreams->>EnrichedTopic: Produce window totals to 'events.enriched'
-    and Database Persistence
-        Kafka->>Connect: Consume events.raw (Batch: 5000)
-        Connect->>Postgres: Bulk INSERT into raw_events
-        EnrichedTopic->>Connect: Consume events.enriched
-        Connect->>Postgres: UPSERT into enriched_counts (ON CONFLICT)
-    end
+    Kafka->>KStreams: Consume events.raw stream
+    Note over KStreams: 1-Minute Tumbling Window Grouped by event_type
+    KStreams->>EnrichedTopic: Produce window totals to 'events.enriched'
+
+    Kafka->>Connect: Consume events.raw (Batch: 5000)
+    Connect->>Postgres: Bulk INSERT into raw_events
+    EnrichedTopic->>Connect: Consume events.enriched
+    Connect->>Postgres: UPSERT into enriched_counts (ON CONFLICT)
 ```
 
 ---
@@ -185,18 +186,18 @@ Traefik v3 operates as the single entry point for all edge traffic, managing dom
 ```mermaid
 erDiagram
     RAW_EVENTS {
-        VARCHAR_255 event_id PK
-        VARCHAR_255 event_type
-        BIGINT occurred_at
-        TEXT payload
-        TIMESTAMPTZ created_at
+        string event_id PK
+        string event_type
+        bigint occurred_at
+        text payload
+        timestamptz created_at
     }
 
     ENRICHED_COUNTS {
-        VARCHAR_255 event_type PK
-        BIGINT window_start PK
-        BIGINT event_count
-        TIMESTAMPTZ updated_at
+        string event_type PK
+        bigint window_start PK
+        bigint event_count
+        timestamptz updated_at
     }
 ```
 
@@ -234,20 +235,6 @@ CREATE INDEX IF NOT EXISTS idx_enriched_counts_window ON enriched_counts(window_
 The infrastructure utilizes OpenTelemetry auto-instrumentation and manual span propagation linked to Grafana Tempo and Grafana Dashboards.
 
 ### How to Inspect Distributed Traces in Grafana
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Developer as Developer / Operator
-    participant UI as Grafana Explorer (:27488)
-    participant Tempo as Tempo Trace Store
-    
-    Developer->>UI: Open http://grafana.scaibu.localhost:27488
-    Developer->>UI: Select 'Explore' menu -> Datasource: 'Tempo'
-    Developer->>UI: Query Trace by Service 'ingestion-api' or Trace ID
-    Tempo-->>UI: Return trace waterfall spans
-    Note over UI: Visualizing Root Span (Traefik: http.request)<br/>Child Span (ingestion-api: http.ingest)<br/>Child Span (ingestion-api: redis.dedup)<br/>Child Span (ingestion-api: kafka.produce)
-```
 
 1. Open Grafana at [http://grafana.scaibu.localhost:27488](http://grafana.scaibu.localhost:27488) (or direct port `http://localhost:27402`).
 2. Log in with Username `admin` and Password `Scaibu@123`.
