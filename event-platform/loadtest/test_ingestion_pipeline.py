@@ -36,7 +36,7 @@ def make_event(event_id=None, event_type="page_view", payload=None):
         "event_id": event_id or str(uuid.uuid4()),
         "event_type": event_type,
         "occurred_at": int(time.time() * 1000),
-        "payload": payload or json.dumps({"url": "/home", "data": PADDING_500KB}),
+        "payload": payload or {"url": "/home", "data": PADDING_500KB},
     }
 
 
