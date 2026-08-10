@@ -1,6 +1,112 @@
-# High-Throughput Event Ingestion & Stream Processing Pipeline — Traefik Integrated
+<div align="center">
 
-A production-grade, enterprise event processing platform built to sustain high-throughput ingestion, zero-data-loss streaming, real-time aggregation, and relational database archiving on minimum compute resources, reverse-proxied and managed by **Traefik v3**.
+# ⚡ High-Throughput Event Ingestion & Stream Processing Pipeline
+
+### Traefik-Integrated · Zero-Data-Loss · Enterprise-Grade
+
+*A production-grade event processing platform engineered for high-throughput ingestion, exactly-once-style deduplication, real-time stream aggregation, and durable relational archiving — running on minimal compute footprint, fronted by Traefik v3.*
+
+![Status](https://img.shields.io/badge/status-production--ready-brightgreen)
+![Gateway](https://img.shields.io/badge/gateway-Traefik%20v3-24A1C1)
+![Streaming](https://img.shields.io/badge/streaming-Apache%20Kafka-000000)
+![Database](https://img.shields.io/badge/database-PostgreSQL%2017-336791)
+![Observability](https://img.shields.io/badge/tracing-OpenTelemetry-425CC7)
+![License](https://img.shields.io/badge/license-Internal-lightgrey)
+
+</div>
+
+---
+
+## 📖 Table of Contents
+
+1. [Executive Summary](#-executive-summary)
+2. [System Architecture at a Glance](#-system-architecture-at-a-glance)
+3. [Network Pipeline & Edge Ingress](#-1-network-pipeline--edge-ingress)
+4. [Messaging & Streaming Pipeline](#-2-messaging--streaming-pipeline)
+5. [Data & Storage Pipeline](#-3-data--storage-pipeline)
+6. [OpenTelemetry Distributed Tracing Pipeline](#-4-opentelemetry-distributed-tracing-pipeline)
+7. [How to Read & Inspect Traces](#-5-how-to-read--inspect-traces-waterfall-guide)
+8. [Service Configuration Reference](#-6-service-configuration-reference-tables)
+9. [Operational Decision & Truth Tables](#-7-operational-system-decision--truth-tables)
+10. [Challenges Faced & Resolutions](#-8-challenges-faced--resolutions)
+11. [Ports & Credentials](#-9-dedicated-ports--credentials)
+12. [Execution Commands](#-10-execution-commands)
+13. [Security & Hardening Notes](#-security--hardening-notes)
+
+---
+
+## 🧭 Executive Summary
+
+This platform ingests client-generated events at the edge, deduplicates and validates them in real time, streams them through a schema-governed Kafka pipeline, aggregates them into rolling time windows, and persists both raw and enriched data into PostgreSQL — all while emitting fully correlated distributed traces for end-to-end observability.
+
+**Why it matters for stakeholders:**
+
+| Audience | What this platform delivers |
+|---|---|
+| **CTO / Tech Investors** | A horizontally scalable, low-compute-footprint ingestion layer with built-in rate limiting, TLS termination, and audit-grade traceability — reducing infrastructure spend while de-risking data loss. |
+| **Senior Developers** | A clean separation of concerns across four pipelines (network, messaging, storage, tracing), schema-enforced contracts via Avro + Schema Registry, and idempotent write paths. |
+| **Network Engineers** | A single, hardened ingress point (Traefik v3) with CIDR whitelisting, token-bucket rate limiting, payload caps, and BasicAuth-protected administrative surfaces. |
+
+**Core guarantees:**
+- ✅ **Zero data loss** — Kafka `acks=all`, replicated topic writes, and idempotent Postgres upserts.
+- ✅ **Deduplication at the edge** — atomic Redis `SETNX` checks before any event enters the stream.
+- ✅ **Schema-governed contracts** — Confluent Schema Registry enforces Avro compatibility on every event.
+- ✅ **Full request traceability** — W3C `traceparent` propagation from Traefik → API → Kafka, visualized in Grafana Tempo.
+- ✅ **Defense-in-depth ingress** — CIDR whitelisting, security headers, rate limiting, and payload caps applied in sequence before any request reaches application code.
+
+---
+
+## 🗺 System Architecture at a Glance
+
+```mermaid
+flowchart LR
+    subgraph Edge["🌐 Edge & Ingress"]
+        Client[Clients / Browsers]
+        Traefik["Traefik v3\nGateway"]
+    end
+
+    subgraph Messaging["⚡ Messaging & Streaming"]
+        API["Go Ingestion API"]
+        Redis[("Redis\nDedup Cache")]
+        SchemaReg["Schema Registry"]
+        KafkaRaw[["Kafka: events.raw"]]
+        KStreams["Kafka Streams\n(Kotlin, Tumbling Window)"]
+        KafkaEnriched[["Kafka: events.enriched"]]
+    end
+
+    subgraph Storage["💾 Storage"]
+        SinkRaw["JDBC Sink: postgres-raw-sink"]
+        SinkEnriched["JDBC Sink: postgres-enriched-sink"]
+        PG[("PostgreSQL 17")]
+    end
+
+    subgraph Tracing["🔍 Observability"]
+        OTel["OTel Collector"]
+        Tempo["Grafana Tempo"]
+        Grafana["Grafana Explorer"]
+    end
+
+    Client -->|HTTP/HTTPS| Traefik
+    Traefik -->|routed & rate-limited| API
+    API --> Redis
+    API --> SchemaReg
+    API --> KafkaRaw
+    KafkaRaw --> KStreams
+    KStreams --> KafkaEnriched
+    KafkaRaw --> SinkRaw --> PG
+    KafkaEnriched --> SinkEnriched --> PG
+
+    Traefik -.trace.-> OTel
+    API -.trace.-> OTel
+    OTel --> Tempo --> Grafana
+
+    style Edge fill:#eef6ff,stroke:#3b82f6
+    style Messaging fill:#fef9e7,stroke:#d97706
+    style Storage fill:#eafaf1,stroke:#059669
+    style Tracing fill:#f5eefc,stroke:#7c3aed
+```
+
+> The platform is composed of **four independent, observable pipelines** — Network, Messaging, Storage, and Tracing — each detailed below with its own architecture diagram, configuration reference, and operational truth table.
 
 ---
 
@@ -31,7 +137,7 @@ The Network Pipeline governs edge traffic entry, SSL/TLS termination, request ro
 │  │ BasicAuth Check      │  │ Max Request Payload  │                                     │
 │  │ [admin / Scaibu@123] │  │ [10 MB Byte Cap]     │                                     │
 │  └──────────┬───────────┘  └──────────┬───────────┘                                     │
-└─────────────┼─────────────────────────┼─────────────────────────────────────────────────┘
+└───────────────┼─────────────────────────┼─────────────────────────────────────────────────┘
               │                         │
               ▼                         ▼
 ┌───────────────────────────┐ ┌───────────────────────────────────────────────────────────┐
@@ -264,6 +370,23 @@ graph LR
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+```mermaid
+gantt
+    title Trace Waterfall — Single Request Lifecycle (illustrative)
+    dateFormat  x
+    axisFormat %L ms
+    section Gateway
+    http.request (Traefik)      :a1, 0, 12
+    section API
+    http.ingest (Go API)        :a2, 1, 9
+    section Cache
+    redis.dedup (SETNX)         :a3, 2, 1
+    section Schema
+    schema.fetch                :a4, 3, 2
+    section Kafka
+    kafka.produce               :a5, 5, 5
+```
+
 ### Step-by-Step Operator Guide
 1. **Open Grafana Dashboard**: Navigate to [http://grafana.scaibu.localhost:27488](http://grafana.scaibu.localhost:27488) (or direct port `http://localhost:27402`). Log in using `admin` / `Scaibu@123`.
 2. **Access Explore Tab**: Click the **Explore** compass icon on the left menu bar.
@@ -414,3 +537,24 @@ docker run --rm --network host \
   --summary-export=/scripts/k6-results-10k.json \
   /scripts/traefik_integration.ts
 ```
+
+---
+
+## 🔐 Security & Hardening Notes
+
+> The credentials, ports, and CIDR ranges documented throughout this README (e.g. `admin` / `Scaibu@123`, the `274xx` port range) reflect the **local development environment**. Before any staging or production rollout, this checklist should gate promotion:
+
+- [ ] Replace all hardcoded credentials (`Scaibu@123`, BasicAuth hash) with values injected from a secrets manager (Vault, AWS Secrets Manager, GCP Secret Manager, etc.) — never commit real secrets to source control.
+- [ ] Rotate the Grafana/Traefik dashboard BasicAuth credentials and restrict dashboard access to VPN/internal CIDR ranges only.
+- [ ] Move Kafka `replication.factor` from `1` to `3` for any environment with an availability SLA, and enable multi-broker KRaft quorum.
+- [ ] Enforce TLS with a CA-signed certificate (replace the self-signed fallback) on the HTTPS entrypoint.
+- [ ] Enable Postgres row-level audit logging and encrypt data at rest for `raw_events.payload`.
+- [ ] Add a Dead Letter Queue (DLQ) consumer/alerting path for records routed out of `postgres-raw-sink` on schema validation failure.
+
+---
+
+<div align="center">
+
+**Scaibu — Event Platform** · Maintained by the Platform Engineering Team
+
+</div>
