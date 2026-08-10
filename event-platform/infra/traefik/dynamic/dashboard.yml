@@ -1,10 +1,9 @@
 http:
   routers:
-    dashboard:
-      rule: "Host(`traefik.scaibu.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+    traefik-dashboard-http:
+      rule: "PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
       entryPoints:
-        - metrics
+        - web
       service: api@internal
       middlewares:
         - grafana-auth@file
-      tls: {}

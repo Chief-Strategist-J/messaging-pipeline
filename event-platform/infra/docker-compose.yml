@@ -20,6 +20,7 @@ services:
     ports:
       - "${TRAEFIK_HTTP_PORT:-27488}:80"
       - "${TRAEFIK_HTTPS_PORT:-27443}:443"
+      - "8899:8899"
     environment:
       TRAEFIK_ACME_EMAIL: "${TRAEFIK_ACME_EMAIL}"
       TRAEFIK_LOG_LEVEL: "${TRAEFIK_LOG_LEVEL:-INFO}"

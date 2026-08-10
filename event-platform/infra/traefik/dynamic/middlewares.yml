@@ -14,7 +14,7 @@ http:
           Server: ""
 
     real-ip:
-      ipWhiteList:
+      ipAllowList:
         sourceRange:
           - "127.0.0.1/8"
           - "10.0.0.0/8"
@@ -50,7 +50,7 @@ http:
     grafana-auth:
       basicAuth:
         users:
-          - "admin:$2y$05$w1oSTcircIV65a2xF6gydesAmdtBiuyXMGru7VhCoubWjBjI7Ucpi"
+          - "admin:$2y$05$U97H/43UOsidl4oWuzPs6.VMN0FSvYVbMHKuz1K8J3pvEbLj9/qPS"
         removeHeader: true
 
     grafana-security-headers:
