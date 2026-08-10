@@ -1,0 +1,4 @@
+# Traefik ACME storage — DO NOT COMMIT
+# This file is created and managed by Traefik's ACME/Let's Encrypt resolver.
+# It must be writable by the Traefik process and stored on a persistent volume.
+# The empty JSON object is the correct initial state.

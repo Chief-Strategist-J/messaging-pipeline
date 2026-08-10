@@ -2,3 +2,9 @@
 build/
 bin/
 .backup.env
+
+# Traefik — NEVER commit these
+infra/traefik/acme/acme.json
+infra/traefik/certs/*.crt
+infra/traefik/certs/*.key
+infra/traefik/certs/*.pem

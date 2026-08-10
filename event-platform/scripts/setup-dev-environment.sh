@@ -1,77 +1,392 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ==============================================================================
+# CONSTANTS & GLOBAL CONFIGURATION
+# ==============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+INFRA_DIR="$PROJECT_ROOT/infra"
+COMPOSE_FILE="$INFRA_DIR/docker-compose.yml"
+ENV_FILE="$INFRA_DIR/.env"
+ACME_FILE="$INFRA_DIR/traefik/acme/acme.json"
+MIGRATION_SQL="$INFRA_DIR/postgres/migrations/001_init_schema.sql"
+RAW_SINK_CONFIG="$INFRA_DIR/kafka/connectors/postgres-raw-sink.json"
+ENRICHED_SINK_CONFIG="$INFRA_DIR/kafka/connectors/postgres-enriched-sink.json"
 
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║   EVENT PLATFORM — DEVELOPER ENVIRONMENT SETUP & MIGRATIONS ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
-echo ""
+PROJECT_NAME="event-platform"
+KAFKA_BOOTSTRAP="localhost:9092"
+SCHEMA_REGISTRY_URL="http://localhost:8081"
+KAFKA_CONNECT_URL="http://localhost:8083"
+POSTGRES_CONTAINER="${PROJECT_NAME}-postgres-1"
+KAFKA_CONTAINER="${PROJECT_NAME}-kafka-1"
 
-echo "1. Checking Prerequisites..."
-for tool in docker git curl; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "❌ Error: '$tool' is required but not installed."
-        exit 1
+TOPIC_EVENTS_RAW="events.raw"
+TOPIC_EVENTS_ENRICHED="events.enriched"
+TOPIC_PARTITIONS=12
+TOPIC_REPLICATION_FACTOR=1
+
+RAW_AVRO_SCHEMA='{\"type\":\"record\",\"name\":\"RawEvent\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"occurred_at\",\"type\":\"long\"},{\"name\":\"payload\",\"type\":\"string\"}]}'
+ENRICHED_AVRO_SCHEMA='{\"type\":\"record\",\"name\":\"EnrichedCount\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"window_start\",\"type\":\"long\"},{\"name\":\"event_count\",\"type\":\"long\"}]}'
+
+REQUIRED_PORTS=(80 443 5432 6379 9092 9093 8081 8083 4317 4318 9090)
+REQUIRED_TOOLS=(docker curl wget htpasswd openssl)
+
+# ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+log()  { echo "  $1"; }
+ok()   { echo "  ✅ $1"; }
+fail() { echo "  ❌ $1"; exit 1; }
+step() { echo ""; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; echo "  $1"; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; }
+
+wait_for() {
+    local name="$1"
+    local cmd="$2"
+    local delay="${3:-3}"
+    local retries="${4:-30}"
+    local count=0
+    log "Waiting for $name..."
+    until eval "$cmd" >/dev/null 2>&1; do
+        count=$((count + 1))
+        if [ "$count" -ge "$retries" ]; then
+            fail "$name did not become ready after $((retries * delay))s"
+        fi
+        sleep "$delay"
+    done
+    ok "$name is ready"
+}
+
+# ==============================================================================
+# EXECUTION STEPS
+# ==============================================================================
+check_prerequisites() {
+    step "STEP 1 — Checking prerequisites"
+
+    for tool in "${REQUIRED_TOOLS[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo ""
+            echo "  ❌ Missing required tool: $tool"
+            echo ""
+            case "$tool" in
+                docker)    echo "     Install: https://docs.docker.com/engine/install/" ;;
+                curl)      echo "     Install: sudo apt install curl   OR   brew install curl" ;;
+                wget)      echo "     Install: sudo apt install wget   OR   brew install wget" ;;
+                htpasswd)  echo "     Install: sudo apt install apache2-utils   OR   brew install httpd" ;;
+                openssl)   echo "     Install: sudo apt install openssl   OR   brew install openssl" ;;
+            esac
+            echo ""
+            exit 1
+        fi
+    done
+
+    if ! docker info >/dev/null 2>&1; then
+        fail "Docker daemon is not running. Start Docker and retry."
     fi
-done
-echo "   ✅ Docker, Git, Curl available."
-echo ""
 
-echo "2. Building & Starting Infrastructure Services..."
-cd "$PROJECT_ROOT"
-docker compose -f infra/docker-compose.yml up -d --build
-echo "   ✅ Infrastructure containers created."
-echo ""
+    ok "All required tools present and Docker daemon is running"
+}
 
-echo "3. Waiting for PostgreSQL to be Healthy..."
-until docker exec event-platform-postgres-1 pg_isready -U app -d app >/dev/null 2>&1; do
-    sleep 2
-done
-echo "   ✅ PostgreSQL is ready."
-echo ""
+recreate_env_file() {
+    step "STEP 2 — Recreating infra/.env clean file"
 
-echo "4. Running Database Schema Migrations..."
-docker exec -i event-platform-postgres-1 psql -U app -d app < "$PROJECT_ROOT/infra/postgres/migrations/001_init_schema.sql"
-echo "   ✅ PostgreSQL schema migration applied."
-echo ""
+    log "Wiping and generating clean $ENV_FILE from scratch..."
+    local admin_pass
+    admin_pass="$(openssl rand -base64 16)"
+    local bcrypt_hash
+    bcrypt_hash=$(htpasswd -nbB admin "$admin_pass" | sed 's/\$/\$\$/g')
 
-echo "5. Waiting for Kafka Broker to be Healthy..."
-until docker exec event-platform-kafka-1 /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do
-    sleep 2
-done
-echo "   ✅ Kafka Broker is ready."
-echo ""
+    cat > "$ENV_FILE" <<EOF
+COMPOSE_PROJECT_NAME=event-platform
 
-echo "6. Provisioning Kafka Topics & Schema Registry..."
-docker exec event-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic events.raw --partitions 12 --replication-factor 1 --if-not-exists
-docker exec event-platform-kafka-1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic events.enriched --partitions 12 --replication-factor 1 --if-not-exists
+POSTGRES_DB=app
+POSTGRES_USER=app
+POSTGRES_PASSWORD=app
+POSTGRES_PORT=5432
 
-until curl -s http://localhost:8081/subjects >/dev/null; do
-    sleep 2
-done
-curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema": "{\"type\":\"record\",\"name\":\"RawEvent\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"occurred_at\",\"type\":\"long\"},{\"name\":\"payload\",\"type\":\"string\"}]}"}' http://localhost:8081/subjects/events.raw-value/versions >/dev/null
-curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" --data '{"schema": "{\"type\":\"record\",\"name\":\"EnrichedCount\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"window_start\",\"type\":\"long\"},{\"name\":\"event_count\",\"type\":\"long\"}]}"}' http://localhost:8081/subjects/events.enriched-value/versions >/dev/null
-echo "   ✅ Kafka topics and Avro Schemas registered in Schema Registry."
-echo ""
+REDIS_PORT=6379
 
-echo "7. Registering Kafka Connect Sinks..."
-until curl -s http://localhost:8083/connectors >/dev/null; do
-    sleep 3
-done
-curl -s -X POST -H "Content-Type: application/json" --data @"$PROJECT_ROOT/infra/kafka/connectors/postgres-raw-sink.json" http://localhost:8083/connectors || true
-curl -s -X POST -H "Content-Type: application/json" --data @"$PROJECT_ROOT/infra/kafka/connectors/postgres-enriched-sink.json" http://localhost:8083/connectors || true
-echo ""
-echo "   ✅ Kafka Connect sink connectors registered."
-echo ""
+KAFKA_NODE_ID=1
+KAFKA_INTERNAL_PORT=9092
+KAFKA_CONTROLLER_PORT=9093
+KAFKA_OFFSETS_REPLICATION_FACTOR=1
 
-echo "══════════════════════════════════════════════════════════════"
-echo "🎉 Setup Complete! Active Services & Web Endpoints:"
-echo "   - Ingestion API:     http://localhost:8080/healthz"
-echo "   - pprof Profiling:   http://localhost:6060/debug/pprof/"
-echo "   - Grafana Dashboard: http://localhost:3002"
-echo "   - Prometheus UI:     http://localhost:9090"
-echo "   - Schema Registry:   http://localhost:8081"
-echo "   - Kafka Connect API: http://localhost:8083"
-echo "══════════════════════════════════════════════════════════════"
+SCHEMA_REGISTRY_PORT=8081
+
+CONNECT_PORT=8083
+CONNECT_GROUP_ID=connect-cluster
+CONNECT_CONFIG_TOPIC=connect_configs
+CONNECT_OFFSET_TOPIC=connect_offsets
+CONNECT_STATUS_TOPIC=connect_statuses
+
+INGESTION_API_PORT=8080
+INGESTION_API_REPLICAS=1
+INGESTION_API_CPU_LIMIT=4.0
+INGESTION_API_MEM_LIMIT=1G
+
+OTEL_GRPC_PORT=4317
+OTEL_HTTP_PORT=4318
+
+PROMETHEUS_PORT=9090
+
+GRAFANA_HOST_PORT=3002
+GRAFANA_CONTAINER_PORT=3000
+GF_AUTH_ANONYMOUS_ENABLED=false
+GF_SECURITY_ADMIN_USER=admin
+GF_SECURITY_ADMIN_PASSWORD=${admin_pass}
+
+TRAEFIK_IMAGE=traefik:v3.7.10
+TRAEFIK_LOG_LEVEL=INFO
+DOMAIN_SUFFIX=scaibu.localhost
+API_HOST=api.scaibu.localhost
+GRAFANA_HOST=grafana.scaibu.localhost
+TRAEFIK_ACME_EMAIL=ops@scaibu.com
+API_RATE_LIMIT_AVERAGE=200
+API_RATE_LIMIT_BURST=500
+API_MAX_REQUEST_BODY_BYTES=10485760
+GRAFANA_TRAEFIK_BASICAUTH=${bcrypt_hash}
+TRAEFIK_DIAL_TIMEOUT=5s
+TRAEFIK_RESPONSE_HEADER_TIMEOUT=30s
+TRAEFIK_IDLE_CONN_TIMEOUT=90s
+EOF
+
+    ok ".env file recreated successfully"
+}
+
+nuke_everything() {
+    step "STEP 3 — Destroying all existing state (volumes, networks, containers, images)"
+
+    log "Stopping and removing all project containers, volumes, and networks..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down \
+        --volumes \
+        --remove-orphans \
+        --rmi local \
+        2>/dev/null || true
+
+    log "Force-removing any lingering project containers..."
+    docker ps -aq --filter "label=com.docker.compose.project=$PROJECT_NAME" \
+        | xargs -r docker rm -f 2>/dev/null || true
+
+    log "Removing project networks..."
+    docker network ls --filter "name=${PROJECT_NAME}" -q \
+        | xargs -r docker network rm 2>/dev/null || true
+
+    log "Removing project volumes..."
+    docker volume ls --filter "name=${PROJECT_NAME}" -q \
+        | xargs -r docker volume rm -f 2>/dev/null || true
+
+    log "Removing dangling images from project builds..."
+    docker image prune -f --filter "label=com.docker.compose.project=$PROJECT_NAME" 2>/dev/null || true
+
+    ok "All previous state destroyed"
+}
+
+free_ports() {
+    step "STEP 4 — Releasing any processes bound to required ports"
+
+    for port in "${REQUIRED_PORTS[@]}"; do
+        local pids
+        pids=$(lsof -ti :"$port" 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            log "Port $port in use — killing PIDs: $pids"
+            echo "$pids" | xargs -r kill -9 2>/dev/null || true
+            sleep 0.5
+        fi
+    done
+
+    ok "All required ports are free: ${REQUIRED_PORTS[*]}"
+}
+
+init_traefik_storage() {
+    step "STEP 5 — Initialising Traefik certificate storage"
+
+    mkdir -p "$INFRA_DIR/traefik/acme"
+    mkdir -p "$INFRA_DIR/traefik/certs"
+    mkdir -p "$INFRA_DIR/traefik/dynamic"
+
+    echo "{}" > "$ACME_FILE"
+    chmod 600 "$ACME_FILE"
+
+    ok "acme.json initialised with chmod 600 at $ACME_FILE"
+
+    log "Generating self-signed certificate for local HTTPS testing..."
+    openssl req -x509 -nodes -days 365 \
+        -newkey rsa:2048 \
+        -keyout "$INFRA_DIR/traefik/certs/local-selfsigned.key" \
+        -out    "$INFRA_DIR/traefik/certs/local-selfsigned.crt" \
+        -subj "/C=IN/ST=KA/L=Bangalore/O=scaibu/CN=*.scaibu.localhost" \
+        -addext "subjectAltName=DNS:*.scaibu.localhost,DNS:scaibu.localhost,DNS:localhost" \
+        2>/dev/null
+    chmod 600 "$INFRA_DIR/traefik/certs/local-selfsigned.key"
+    ok "Self-signed certificate generated at $INFRA_DIR/traefik/certs/"
+}
+
+configure_hosts() {
+    step "STEP 6 — Configuring /etc/hosts for local development"
+
+    local hosts_entry="127.0.0.1 api.scaibu.localhost grafana.scaibu.localhost traefik.scaibu.localhost"
+
+    if grep -q "api.scaibu.localhost" /etc/hosts 2>/dev/null; then
+        log "Hosts entries already present — skipping"
+    else
+        log "Adding hostnames to /etc/hosts (requires sudo)..."
+        echo "$hosts_entry" | sudo tee -a /etc/hosts >/dev/null
+        ok "Added: $hosts_entry"
+    fi
+}
+
+build_and_start() {
+    step "STEP 7 — Building and starting all services"
+
+    cd "$PROJECT_ROOT"
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
+
+    ok "All containers started"
+}
+
+wait_for_core_services() {
+    step "STEP 8 — Waiting for core services to become healthy"
+
+    wait_for "PostgreSQL" \
+        "docker exec ${POSTGRES_CONTAINER} pg_isready -U app -d app" 2 30
+
+    wait_for "Kafka Broker" \
+        "docker exec ${KAFKA_CONTAINER} /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092" 3 30
+
+    wait_for "Traefik" \
+        "curl -sf http://localhost:8899/ping" 2 30
+
+    wait_for "ingestion-api (via Traefik)" \
+        "curl -sf http://api.scaibu.localhost/healthz" 3 30
+
+    wait_for "Grafana (via Traefik)" \
+        "curl -sf http://grafana.scaibu.localhost/api/health -u admin:\$(grep '^GF_SECURITY_ADMIN_PASSWORD=' $ENV_FILE | cut -d= -f2-)" 5 30
+}
+
+migrate_postgres() {
+    step "STEP 9 — Running database migrations"
+
+    if [ ! -f "$MIGRATION_SQL" ]; then
+        log "No migration file found at $MIGRATION_SQL — skipping"
+        return
+    fi
+
+    docker exec -i "$POSTGRES_CONTAINER" psql -U app -d app < "$MIGRATION_SQL"
+    ok "PostgreSQL schema migration applied"
+}
+
+provision_kafka_topics() {
+    step "STEP 10 — Provisioning Kafka topics"
+
+    docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server "$KAFKA_BOOTSTRAP" \
+        --create --topic "$TOPIC_EVENTS_RAW" \
+        --partitions "$TOPIC_PARTITIONS" \
+        --replication-factor "$TOPIC_REPLICATION_FACTOR" \
+        --if-not-exists
+
+    docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server "$KAFKA_BOOTSTRAP" \
+        --create --topic "$TOPIC_EVENTS_ENRICHED" \
+        --partitions "$TOPIC_PARTITIONS" \
+        --replication-factor "$TOPIC_REPLICATION_FACTOR" \
+        --if-not-exists
+
+    ok "Kafka topics provisioned: $TOPIC_EVENTS_RAW, $TOPIC_EVENTS_ENRICHED"
+}
+
+register_avro_schemas() {
+    step "STEP 11 — Registering Avro schemas in Schema Registry"
+
+    wait_for "Schema Registry" "curl -sf $SCHEMA_REGISTRY_URL/subjects" 2 30
+
+    curl -sf -X POST \
+        -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+        --data "{\"schema\": \"${RAW_AVRO_SCHEMA}\"}" \
+        "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_RAW}-value/versions" >/dev/null
+
+    curl -sf -X POST \
+        -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+        --data "{\"schema\": \"${ENRICHED_AVRO_SCHEMA}\"}" \
+        "$SCHEMA_REGISTRY_URL/subjects/${TOPIC_EVENTS_ENRICHED}-value/versions" >/dev/null
+
+    ok "Avro schemas registered for $TOPIC_EVENTS_RAW and $TOPIC_EVENTS_ENRICHED"
+}
+
+register_kafka_connectors() {
+    step "STEP 12 — Registering Kafka Connect sink connectors"
+
+    wait_for "Kafka Connect" "curl -sf $KAFKA_CONNECT_URL/connectors" 3 30
+
+    if [ -f "$RAW_SINK_CONFIG" ]; then
+        curl -sf -X POST -H "Content-Type: application/json" \
+            --data @"$RAW_SINK_CONFIG" \
+            "$KAFKA_CONNECT_URL/connectors" >/dev/null || true
+        ok "Registered: postgres-raw-sink"
+    else
+        log "Skipping raw sink — $RAW_SINK_CONFIG not found"
+    fi
+
+    if [ -f "$ENRICHED_SINK_CONFIG" ]; then
+        curl -sf -X POST -H "Content-Type: application/json" \
+            --data @"$ENRICHED_SINK_CONFIG" \
+            "$KAFKA_CONNECT_URL/connectors" >/dev/null || true
+        ok "Registered: postgres-enriched-sink"
+    else
+        log "Skipping enriched sink — $ENRICHED_SINK_CONFIG not found"
+    fi
+}
+
+display_summary() {
+    local admin_pass
+    admin_pass=$(grep "^GF_SECURITY_ADMIN_PASSWORD=" "$ENV_FILE" | cut -d= -f2-)
+
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════════╗"
+    echo "║              EVENT PLATFORM — SETUP COMPLETE                        ║"
+    echo "╠══════════════════════════════════════════════════════════════════════╣"
+    echo "║  PUBLIC ENDPOINTS (via Traefik)                                     ║"
+    echo "║  Ingestion API:       http://api.scaibu.localhost/v1/events         ║"
+    echo "║  API Health:          http://api.scaibu.localhost/healthz           ║"
+    echo "║  Grafana:             http://grafana.scaibu.localhost               ║"
+    echo "║                                                                     ║"
+    echo "║  INTERNAL ENDPOINTS (direct access, dev only)                       ║"
+    echo "║  Prometheus:          http://localhost:9090                         ║"
+    echo "║  Schema Registry:     http://localhost:8081                         ║"
+    echo "║  Kafka Connect:       http://localhost:8083                         ║"
+    echo "║  OTel gRPC:           localhost:4317                                ║"
+    echo "║  OTel HTTP:           localhost:4318                                ║"
+    echo "║                                                                     ║"
+    echo "║  CREDENTIALS                                                        ║"
+    echo "║  Grafana admin:       admin / ${admin_pass}                         "
+    echo "║                                                                     ║"
+    echo "║  SCALE API REPLICAS                                                 ║"
+    echo "║  docker compose -f infra/docker-compose.yml up -d                  ║"
+    echo "║    --scale ingestion-api=4                                          ║"
+    echo "╚══════════════════════════════════════════════════════════════════════╝"
+    echo ""
+}
+
+main() {
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════════╗"
+    echo "║         EVENT PLATFORM — FULL ENVIRONMENT SETUP                    ║"
+    echo "║         $(date '+%Y-%m-%d %H:%M:%S %Z')                                  ║"
+    echo "╚══════════════════════════════════════════════════════════════════════╝"
+
+    check_prerequisites
+    recreate_env_file
+    nuke_everything
+    free_ports
+    init_traefik_storage
+    configure_hosts
+    build_and_start
+    wait_for_core_services
+    migrate_postgres
+    provision_kafka_topics
+    register_avro_schemas
+    register_kafka_connectors
+    display_summary
+}
+
+main "$@"

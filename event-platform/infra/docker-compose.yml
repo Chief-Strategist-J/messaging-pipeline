@@ -4,6 +4,41 @@ networks:
   backbone: {}
 
 services:
+  traefik:
+    image: ${TRAEFIK_IMAGE:-traefik:v3.7.10}
+    restart: unless-stopped
+    labels:
+      - "traefik.project=event-platform"
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    volumes:
+      - "./traefik/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "./traefik/dynamic:/etc/traefik/dynamic:ro"
+      - "./traefik/acme:/etc/traefik/acme"
+      - "./traefik/certs:/etc/traefik/certs:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TRAEFIK_ACME_EMAIL: "${TRAEFIK_ACME_EMAIL}"
+      TRAEFIK_LOG_LEVEL: "${TRAEFIK_LOG_LEVEL:-INFO}"
+      DOMAIN_SUFFIX: "${DOMAIN_SUFFIX:-scaibu.localhost}"
+      API_RATE_LIMIT_AVERAGE: "${API_RATE_LIMIT_AVERAGE:-200}"
+      API_RATE_LIMIT_BURST: "${API_RATE_LIMIT_BURST:-500}"
+      API_MAX_REQUEST_BODY_BYTES: "${API_MAX_REQUEST_BODY_BYTES:-10485760}"
+      GRAFANA_TRAEFIK_BASICAUTH: "${GRAFANA_TRAEFIK_BASICAUTH}"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [backbone]
+    depends_on:
+      otel-collector:
+        condition: service_started
+
   postgres:
     image: postgres:17
     environment:
@@ -41,7 +76,6 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_REPLICATION_FACTOR}
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_MESSAGE_MAX_BYTES: "10485760"
-
     ports:
       - "${KAFKA_INTERNAL_PORT}:${KAFKA_INTERNAL_PORT}"
     healthcheck:
@@ -102,6 +136,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      traefik:
+        condition: service_healthy
     environment:
       KAFKA_BROKERS: "kafka:${KAFKA_INTERNAL_PORT}"
       REDIS_ADDR: "redis:${REDIS_PORT}"
@@ -110,15 +146,40 @@ services:
       EVENT_TYPES_PATH: "/etc/config/event-types.yaml"
     volumes:
       - "../config/event-types.yaml:/etc/config/event-types.yaml:ro"
-    ports:
-      - "${INGESTION_API_PORT}:8080"
-      - "6060:6060"
     deploy:
-      replicas: ${INGESTION_API_REPLICAS}
+      replicas: ${INGESTION_API_REPLICAS:-1}
       resources:
         limits:
-          cpus: "${INGESTION_API_CPU_LIMIT}"
-          memory: "${INGESTION_API_MEM_LIMIT}"
+          cpus: "${INGESTION_API_CPU_LIMIT:-4.0}"
+          memory: "${INGESTION_API_MEM_LIMIT:-1G}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "traefik.project=event-platform"
+      - "traefik.enable=true"
+      - "traefik.docker.network=backbone"
+      - "traefik.http.routers.api-http.rule=Host(`api.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
+      - "traefik.http.routers.api-http.entryPoints=web"
+      - "traefik.http.routers.api-http.service=ingestion-api-svc"
+      - "traefik.http.routers.api-http.middlewares=real-ip@file,api-ratelimit@file,api-body-limit@file,security-headers@file"
+      - "traefik.http.routers.api-https.rule=Host(`api.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
+      - "traefik.http.routers.api-https.entryPoints=websecure"
+      - "traefik.http.routers.api-https.service=ingestion-api-svc"
+      - "traefik.http.routers.api-https.tls=true"
+      - "traefik.http.routers.api-https.tls.certResolver=letsencrypt"
+      - "traefik.http.routers.api-https.tls.options=secure@file"
+      - "traefik.http.routers.api-https.middlewares=real-ip@file,api-ratelimit@file,api-body-limit@file,api-retry@file,api-circuit-breaker@file,security-headers@file"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.server.port=8080"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.server.scheme=http"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.healthCheck.path=/healthz"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.healthCheck.interval=10s"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.healthCheck.timeout=5s"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.responseForwarding.flushInterval=100ms"
+      - "traefik.http.services.ingestion-api-svc.loadbalancer.passHostHeader=true"
     networks: [backbone]
 
   stream-processor:
@@ -140,7 +201,7 @@ services:
     networks: [backbone]
 
   otel-collector:
-    image: otel/opentelemetry-collector:latest
+    image: otel/opentelemetry-collector-contrib:latest
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - "./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro"
@@ -152,7 +213,10 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-remote-write-receiver"]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+      - "--storage.tsdb.retention.time=15d"
     volumes:
       - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
     ports:
@@ -163,7 +227,38 @@ services:
     image: grafana/grafana:latest
     volumes:
       - "./grafana/provisioning:/etc/grafana/provisioning:ro"
-    ports:
-      - "${GRAFANA_HOST_PORT}:${GRAFANA_CONTAINER_PORT}"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "${GF_AUTH_ANONYMOUS_ENABLED:-false}"
+      GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-changeme_grafana_admin}"
+      GF_SERVER_ROOT_URL: "http://grafana.${DOMAIN_SUFFIX:-scaibu.localhost}"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
     depends_on: [prometheus, tempo]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.project=event-platform"
+      - "traefik.enable=true"
+      - "traefik.docker.network=backbone"
+      - "traefik.http.routers.grafana-http.rule=Host(`grafana.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
+      - "traefik.http.routers.grafana-http.entryPoints=web"
+      - "traefik.http.routers.grafana-http.service=grafana-svc"
+      - "traefik.http.routers.grafana-http.middlewares=real-ip@file,grafana-auth@file,grafana-security-headers@file"
+      - "traefik.http.routers.grafana-https.rule=Host(`grafana.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
+      - "traefik.http.routers.grafana-https.entryPoints=websecure"
+      - "traefik.http.routers.grafana-https.service=grafana-svc"
+      - "traefik.http.routers.grafana-https.tls=true"
+      - "traefik.http.routers.grafana-https.tls.certResolver=letsencrypt"
+      - "traefik.http.routers.grafana-https.tls.options=secure@file"
+      - "traefik.http.routers.grafana-https.middlewares=real-ip@file,grafana-auth@file,grafana-security-headers@file"
+      - "traefik.http.services.grafana-svc.loadbalancer.server.port=${GRAFANA_CONTAINER_PORT:-3000}"
+      - "traefik.http.services.grafana-svc.loadbalancer.server.scheme=http"
+      - "traefik.http.services.grafana-svc.loadbalancer.healthCheck.path=/api/health"
+      - "traefik.http.services.grafana-svc.loadbalancer.healthCheck.interval=15s"
+      - "traefik.http.services.grafana-svc.loadbalancer.healthCheck.timeout=5s"
+      - "traefik.http.services.grafana-svc.loadbalancer.passHostHeader=true"
     networks: [backbone]

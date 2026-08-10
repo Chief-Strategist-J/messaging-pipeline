@@ -1,0 +1,100 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":80"
+    transport:
+      respondingTimeouts:
+        readTimeout: "30s"
+        writeTimeout: "30s"
+        idleTimeout: "90s"
+      lifeCycle:
+        requestAcceptGraceTimeout: "5s"
+        graceTimeOut: "30s"
+
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: "30s"
+        writeTimeout: "30s"
+        idleTimeout: "90s"
+      lifeCycle:
+        requestAcceptGraceTimeout: "5s"
+        graceTimeOut: "30s"
+    http:
+      tls:
+        certResolver: letsencrypt
+
+  metrics:
+    address: ":8899"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    network: backbone
+    exposedByDefault: false
+    watch: true
+    constraints: "Label(`traefik.project`, `event-platform`)"
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${TRAEFIK_ACME_EMAIL}"
+      storage: "/etc/traefik/acme/acme.json"
+      httpChallenge:
+        entryPoint: web
+
+api:
+  dashboard: true
+  insecure: false
+
+ping:
+  entryPoint: metrics
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    buckets:
+      - 0.005
+      - 0.01
+      - 0.025
+      - 0.05
+      - 0.1
+      - 0.25
+      - 0.5
+      - 1.0
+      - 2.5
+      - 5.0
+      - 10.0
+
+tracing:
+  otlp:
+    grpc:
+      endpoint: "otel-collector:4317"
+      insecure: true
+
+accessLog:
+  format: json
+  filePath: ""
+  fields:
+    headers:
+      defaultMode: drop
+      names:
+        X-Forwarded-For: keep
+        X-Real-Ip: keep
+        X-Request-Id: keep
+        User-Agent: keep
+        Content-Type: keep
+
+log:
+  level: "${TRAEFIK_LOG_LEVEL}"
+  format: json
