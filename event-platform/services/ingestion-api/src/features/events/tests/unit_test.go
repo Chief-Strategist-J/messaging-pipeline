@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"event-platform/ingestion-api/src/features/events"
@@ -72,26 +73,26 @@ func TestValidatePayload(t *testing.T) {
 
 	// Valid payload
 	payload := []byte(`{"amount": 100, "currency": "USD"}`)
-	if err := events.FeatureValidatePayload(cfg, payload); err != nil {
+	if err := events.FeatureValidatePayload(context.Background(), cfg, payload); err != nil {
 		t.Fatalf("expected payload to be valid, got: %v", err)
 	}
 
 	// Missing required field
 	payloadMissing := []byte(`{"currency": "USD"}`)
-	if err := events.FeatureValidatePayload(cfg, payloadMissing); err == nil {
+	if err := events.FeatureValidatePayload(context.Background(), cfg, payloadMissing); err == nil {
 		t.Fatal("expected error for missing required field")
 	}
 
 	// Exceeds max length
 	payloadTooLong := []byte(`{"amount": 100, "currency": "USDOLLARS"}`)
-	if err := events.FeatureValidatePayload(cfg, payloadTooLong); err == nil {
+	if err := events.FeatureValidatePayload(context.Background(), cfg, payloadTooLong); err == nil {
 		t.Fatal("expected error for max length violation")
 	}
 }
 
 func TestPurchaseEnrichment(t *testing.T) {
 	payload := []byte(`{"amount_cents": 1000, "currency": "usd"}`)
-	enriched, err := events.FeaturePurchaseEnrichment(payload)
+	enriched, err := events.FeaturePurchaseEnrichment(context.Background(), payload)
 	if err != nil {
 		t.Fatalf("enrichment failed: %v", err)
 	}

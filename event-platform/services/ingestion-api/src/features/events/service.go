@@ -1,10 +1,13 @@
 package events
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/buger/jsonparser"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,7 +44,7 @@ func Get(name string) (EventTypeConfig, bool) {
 }
 
 // CustomProcessor processes / enriches a raw payload
-type CustomProcessor func(payloadJSON []byte) ([]byte, error)
+type CustomProcessor func(ctx context.Context, payloadJSON []byte) ([]byte, error)
 
 var customProcessors = map[string]CustomProcessor{}
 
@@ -58,7 +61,15 @@ func GetCustomProcessor(name string) (CustomProcessor, bool) {
 }
 
 // ValidatePayload validates a payload against EventTypeConfig using jsonparser
-func ValidatePayload(cfg EventTypeConfig, payloadJSON []byte) error {
+func ValidatePayload(ctx context.Context, cfg EventTypeConfig, payloadJSON []byte) error {
+	_, span := otel.Tracer("events").Start(ctx, "events.ValidatePayload")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("event.type", cfg.Name),
+		attribute.Int("event.payload.size", len(payloadJSON)),
+	)
+
 	for _, rule := range cfg.PayloadRules {
 		val, dataType, _, err := jsonparser.Get(payloadJSON, rule.Field)
 		if rule.Required && (err != nil || dataType == jsonparser.NotExist) {

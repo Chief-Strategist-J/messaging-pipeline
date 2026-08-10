@@ -80,13 +80,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := events.FeatureValidatePayload(cfg, payloadBytes); err != nil {
+	if err := events.FeatureValidatePayload(r.Context(), cfg, payloadBytes); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
 	if proc, ok := events.FeatureGetCustomProcessor(cfg.CustomProcessor); ok {
-		enriched, err := proc(payloadBytes)
+		enriched, err := proc(r.Context(), payloadBytes)
 		if err != nil {
 			http.Error(w, constants.ErrProcessingFailed+err.Error(), http.StatusUnprocessableEntity)
 			return
