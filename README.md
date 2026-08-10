@@ -12,14 +12,14 @@ The Network Pipeline governs edge traffic entry, SSL/TLS termination, request ro
 
 ```mermaid
 flowchart LR
-    Client["HTTP / HTTPS Clients"]
-    EntryHTTP["HTTP EntryPoint (:27488)"]
-    EntryHTTPS["HTTPS EntryPoint (:27443)"]
+    Client["HTTP and HTTPS Clients"]
+    EntryHTTP["HTTP EntryPoint 27488"]
+    EntryHTTPS["HTTPS EntryPoint 27443"]
     RealIP["1. real-ip Middleware"]
     SecHead["2. security-headers Middleware"]
     RateLim["3. api-ratelimit Middleware"]
     BodyLim["4. api-body-limit Middleware"]
-    IngestionAPI["Go Ingestion API Cluster (:27480)"]
+    IngestionAPI["Go Ingestion API Cluster 27480"]
 
     Client --> EntryHTTP
     Client --> EntryHTTPS
@@ -51,17 +51,17 @@ The Messaging Pipeline guarantees high-throughput event validation, fast Redis d
 ```mermaid
 flowchart LR
     API["1. Go Ingestion API"]
-    Redis["2. Redis Cache (:27479)"]
-    SchemaReg["3. Schema Registry (:27481)"]
-    TopicRaw[("4. Kafka Topic: events.raw")]
+    Redis["2. Redis Cache 27479"]
+    SchemaReg["3. Schema Registry 27481"]
+    TopicRaw["4. Kafka Topic: events.raw"]
     KStreams["5. Kotlin Kafka Streams Engine"]
-    TopicEnriched[("6. Kafka Topic: events.enriched")]
+    TopicEnriched["6. Kafka Topic: events.enriched"]
 
-    API -->|SETNX dedup:event_id| Redis
-    API -->|Fetch Schema ID| SchemaReg
+    API -->|Deduplication Check| Redis
+    API -->|Fetch Avro Schema ID| SchemaReg
     API -->|Produce Binary Avro| TopicRaw
     TopicRaw --> KStreams
-    KStreams -->|Produce Window Totals| TopicEnriched
+    KStreams -->|Produce Window Aggregates| TopicEnriched
 ```
 
 ### Messaging Pipeline Stages
@@ -81,15 +81,15 @@ The Data Pipeline manages batch loading, schema evolution, primary key constrain
 
 ```mermaid
 flowchart LR
-    TopicRaw[("Topic: events.raw")]
-    TopicEnriched[("Topic: events.enriched")]
+    TopicRaw["Kafka Topic: events.raw"]
+    TopicEnriched["Kafka Topic: events.enriched"]
     RawSink["Kafka Connect: postgres-raw-sink"]
     EnrichedSink["Kafka Connect: postgres-enriched-sink"]
-    RawTable[("Table: raw_events")]
-    EnrichedTable[("Table: enriched_counts")]
+    RawTable["Table: raw_events"]
+    EnrichedTable["Table: enriched_counts"]
 
     TopicRaw --> RawSink
-    RawSink -->|Bulk INSERT (Batch 5000)| RawTable
+    RawSink -->|Bulk INSERT Batch 5000| RawTable
     TopicEnriched --> EnrichedSink
     EnrichedSink -->|UPSERT ON CONFLICT| EnrichedTable
 ```
@@ -113,11 +113,11 @@ The Tracing Pipeline extracts W3C trace context at the edge gateway, propagates 
 flowchart LR
     Traefik["Traefik Ingress Gateway"]
     GoAPI["Go Ingestion API"]
-    OTel["OpenTelemetry Collector (:27417)"]
+    OTel["OpenTelemetry Collector 27417"]
     Tempo["Grafana Tempo Trace Store"]
-    Grafana["Grafana UI Explorer (:27402)"]
+    Grafana["Grafana UI Explorer 27402"]
 
-    Traefik -->|Pass W3C traceparent| GoAPI
+    Traefik -->|Pass W3C Trace Context| GoAPI
     Traefik -->|Export OTLP Spans| OTel
     GoAPI -->|Export OTLP Spans| OTel
     OTel --> Tempo
@@ -134,12 +134,12 @@ flowchart LR
 sequenceDiagram
     autonumber
     actor Dev as Developer / Operator
-    participant UI as Grafana Explorer (:27402)
+    participant UI as Grafana Explorer
     participant Tempo as Grafana Tempo Store
 
     Dev->>UI: Open http://grafana.scaibu.localhost:27488
-    Dev->>UI: Select 'Explore' -> Datasource: 'Tempo'
-    Dev->>UI: Search by Service: 'ingestion-api' or Trace ID
+    Dev->>UI: Select Explore and Datasource Tempo
+    Dev->>UI: Search by Service ingestion-api or Trace ID
     Tempo-->>UI: Return Trace Waterfall Spans
 ```
 
