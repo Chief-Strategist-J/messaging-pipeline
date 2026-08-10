@@ -1,20 +1,19 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
+import { Options } from 'k6/options';
 
-export const options = {
+export const options: Options = {
   scenarios: {
-    constant_rate_load: {
-      executor: 'constant-arrival-rate',
-      rate: 35,                   // Sustained target rate: 35 req/s (~17.5 MB/s payload bandwidth)
-      timeUnit: '1s',
-      duration: '60s',
-      preAllocatedVUs: 50,
-      maxVUs: 100,
+    ten_k_load_test: {
+      executor: 'shared-iterations',
+      vus: 50,
+      iterations: 10000,
+      maxDuration: '5m',
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.05'],
+    http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<2000'],
   },
 };
@@ -22,13 +21,12 @@ export const options = {
 const successCounter = new Counter('successful_ingestions');
 const failCounter = new Counter('failed_ingestions');
 
-// FIX 2: Pre-built 500KB payload reference outside default function
 const PADDING_500KB = 'x'.repeat(500 * 1024);
 const PRE_BUILT_PAYLOAD_BODY = JSON.stringify({ url: '/home', data: PADDING_500KB });
 
-export default function () {
-  const payload = JSON.stringify({
-    event_id: `load-${__VU}-${__ITER}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+export default function (): void {
+  const payload: string = JSON.stringify({
+    event_id: `load10k-${__VU}-${__ITER}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     event_type: 'page_view',
     occurred_at: Date.now(),
     payload: PRE_BUILT_PAYLOAD_BODY,

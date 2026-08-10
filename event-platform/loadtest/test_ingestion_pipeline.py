@@ -22,7 +22,7 @@ HEALTHZ_URL = f"{API_BASE}/healthz"
 PG_DSN = os.getenv("PG_DSN", "dbname=app user=app password=app host=localhost port=5432")
 
 LOADTEST_DIR = os.path.join(os.path.dirname(__file__), "..", "loadtest")
-K6_SCRIPT = os.path.join(LOADTEST_DIR, "k6_10k_500kb.js")
+K6_SCRIPT = os.path.join(LOADTEST_DIR, "ingestion_10k_loadtest.ts")
 K6_RESULTS_FILE = os.path.join(LOADTEST_DIR, "k6-results.json")
 STATS_DIR = os.path.join(LOADTEST_DIR, "stats_snapshots")
 

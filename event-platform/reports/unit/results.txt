@@ -1,1 +1,0 @@
-/home/btpl-lap-22/live/messaging-pipeline/event-platform/scripts/run-tests.sh: line 44: go: command not found
