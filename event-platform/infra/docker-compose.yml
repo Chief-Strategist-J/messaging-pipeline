@@ -18,8 +18,8 @@ services:
       - "./traefik/certs:/etc/traefik/certs:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     ports:
-      - "80:80"
-      - "443:443"
+      - "${TRAEFIK_HTTP_PORT:-27488}:80"
+      - "${TRAEFIK_HTTPS_PORT:-27443}:443"
     environment:
       TRAEFIK_ACME_EMAIL: "${TRAEFIK_ACME_EMAIL}"
       TRAEFIK_LOG_LEVEL: "${TRAEFIK_LOG_LEVEL:-INFO}"
@@ -46,7 +46,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${POSTGRES_PORT:-27432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
@@ -56,7 +56,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${REDIS_PORT:-27479}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -77,9 +77,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_MESSAGE_MAX_BYTES: "10485760"
     ports:
-      - "${KAFKA_INTERNAL_PORT}:${KAFKA_INTERNAL_PORT}"
+      - "${KAFKA_INTERNAL_PORT:-27492}:9092"
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:${KAFKA_INTERNAL_PORT}"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
       interval: 10s
       retries: 10
     networks: [backbone]
@@ -91,9 +91,9 @@ services:
         condition: service_healthy
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "${SCHEMA_REGISTRY_PORT}:8081"
+      - "${SCHEMA_REGISTRY_PORT:-27481}:8081"
     networks: [backbone]
 
   connect:
@@ -108,14 +108,14 @@ services:
       schema-registry:
         condition: service_started
     environment:
-      CONNECT_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
       CONNECT_GROUP_ID: ${CONNECT_GROUP_ID}
       CONNECT_CONFIG_STORAGE_TOPIC: ${CONNECT_CONFIG_TOPIC}
       CONNECT_OFFSET_STORAGE_TOPIC: ${CONNECT_OFFSET_TOPIC}
       CONNECT_STATUS_STORAGE_TOPIC: ${CONNECT_STATUS_TOPIC}
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:${SCHEMA_REGISTRY_PORT}
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
@@ -125,7 +125,7 @@ services:
       interval: 5s
       retries: 10
     ports:
-      - "${CONNECT_PORT}:8083"
+      - "${CONNECT_PORT:-27483}:8083"
     networks: [backbone]
 
   ingestion-api:
@@ -139,9 +139,9 @@ services:
       traefik:
         condition: service_healthy
     environment:
-      KAFKA_BROKERS: "kafka:${KAFKA_INTERNAL_PORT}"
-      REDIS_ADDR: "redis:${REDIS_PORT}"
-      OTLP_ENDPOINT: "otel-collector:${OTEL_GRPC_PORT}"
+      KAFKA_BROKERS: "kafka:9092"
+      REDIS_ADDR: "redis:6379"
+      OTLP_ENDPOINT: "otel-collector:4317"
       SCHEMA_ID: "1"
       EVENT_TYPES_PATH: "/etc/config/event-types.yaml"
     volumes:
@@ -161,7 +161,7 @@ services:
     labels:
       - "traefik.project=event-platform"
       - "traefik.enable=true"
-      - "traefik.docker.network=backbone"
+      - "traefik.docker.network=event-platform_backbone"
       - "traefik.http.routers.api-http.rule=Host(`api.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
       - "traefik.http.routers.api-http.entryPoints=web"
       - "traefik.http.routers.api-http.service=ingestion-api-svc"
@@ -170,7 +170,6 @@ services:
       - "traefik.http.routers.api-https.entryPoints=websecure"
       - "traefik.http.routers.api-https.service=ingestion-api-svc"
       - "traefik.http.routers.api-https.tls=true"
-      - "traefik.http.routers.api-https.tls.certResolver=letsencrypt"
       - "traefik.http.routers.api-https.tls.options=secure@file"
       - "traefik.http.routers.api-https.middlewares=real-ip@file,api-ratelimit@file,api-body-limit@file,api-retry@file,api-circuit-breaker@file,security-headers@file"
       - "traefik.http.services.ingestion-api-svc.loadbalancer.server.port=8080"
@@ -189,8 +188,8 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      KAFKA_BROKERS: "kafka:${KAFKA_INTERNAL_PORT}"
-      SCHEMA_REGISTRY_URL: "http://schema-registry:${SCHEMA_REGISTRY_PORT}"
+      KAFKA_BROKERS: "kafka:9092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
     networks: [backbone]
 
   tempo:
@@ -206,8 +205,8 @@ services:
     volumes:
       - "./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro"
     ports:
-      - "${OTEL_GRPC_PORT}:4317"
-      - "${OTEL_HTTP_PORT}:4318"
+      - "${OTEL_GRPC_PORT:-27417}:4317"
+      - "${OTEL_HTTP_PORT:-27418}:4318"
     depends_on: [tempo]
     networks: [backbone]
 
@@ -220,7 +219,7 @@ services:
     volumes:
       - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
     ports:
-      - "${PROMETHEUS_PORT}:9090"
+      - "${PROMETHEUS_PORT:-27490}:9090"
     networks: [backbone]
 
   grafana:
@@ -243,7 +242,7 @@ services:
     labels:
       - "traefik.project=event-platform"
       - "traefik.enable=true"
-      - "traefik.docker.network=backbone"
+      - "traefik.docker.network=event-platform_backbone"
       - "traefik.http.routers.grafana-http.rule=Host(`grafana.${DOMAIN_SUFFIX:-scaibu.localhost}`)"
       - "traefik.http.routers.grafana-http.entryPoints=web"
       - "traefik.http.routers.grafana-http.service=grafana-svc"
@@ -252,7 +251,6 @@ services:
       - "traefik.http.routers.grafana-https.entryPoints=websecure"
       - "traefik.http.routers.grafana-https.service=grafana-svc"
       - "traefik.http.routers.grafana-https.tls=true"
-      - "traefik.http.routers.grafana-https.tls.certResolver=letsencrypt"
       - "traefik.http.routers.grafana-https.tls.options=secure@file"
       - "traefik.http.routers.grafana-https.middlewares=real-ip@file,grafana-auth@file,grafana-security-headers@file"
       - "traefik.http.services.grafana-svc.loadbalancer.server.port=${GRAFANA_CONTAINER_PORT:-3000}"

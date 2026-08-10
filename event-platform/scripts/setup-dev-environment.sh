@@ -29,7 +29,7 @@ TOPIC_REPLICATION_FACTOR=1
 RAW_AVRO_SCHEMA='{\"type\":\"record\",\"name\":\"RawEvent\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"occurred_at\",\"type\":\"long\"},{\"name\":\"payload\",\"type\":\"string\"}]}'
 ENRICHED_AVRO_SCHEMA='{\"type\":\"record\",\"name\":\"EnrichedCount\",\"namespace\":\"com.platform.events\",\"fields\":[{\"name\":\"event_type\",\"type\":\"string\"},{\"name\":\"window_start\",\"type\":\"long\"},{\"name\":\"event_count\",\"type\":\"long\"}]}'
 
-REQUIRED_PORTS=(80 443 5432 6379 9092 9093 8081 8083 4317 4318 9090)
+REQUIRED_PORTS=(27488 27443 27432 27479 27492 27493 27481 27483 27417 27418 27490 27402 27480)
 REQUIRED_TOOLS=(docker curl wget htpasswd openssl)
 
 # ==============================================================================
@@ -182,19 +182,23 @@ nuke_everything() {
 }
 
 free_ports() {
-    step "STEP 4 — Releasing any processes bound to required ports"
+    step "STEP 4 — Verifying required ports are free"
 
+    local conflicted_ports=()
     for port in "${REQUIRED_PORTS[@]}"; do
         local pids
         pids=$(lsof -ti :"$port" 2>/dev/null || true)
         if [ -n "$pids" ]; then
-            log "Port $port in use — killing PIDs: $pids"
-            echo "$pids" | xargs -r kill -9 2>/dev/null || true
-            sleep 0.5
+            log "Port $port is in use by PID(s): $pids"
+            conflicted_ports+=("$port")
         fi
     done
 
-    ok "All required ports are free: ${REQUIRED_PORTS[*]}"
+    if [ "${#conflicted_ports[@]}" -gt 0 ]; then
+        fail "The following unique project ports are still occupied: ${conflicted_ports[*]}. Please free them before running setup."
+    fi
+
+    ok "All required dedicated ports are free: ${REQUIRED_PORTS[*]}"
 }
 
 init_traefik_storage() {
@@ -222,16 +226,17 @@ init_traefik_storage() {
 }
 
 configure_hosts() {
-    step "STEP 6 — Configuring /etc/hosts for local development"
+    step "STEP 6 — Checking /etc/hosts for local development"
 
     local hosts_entry="127.0.0.1 api.scaibu.localhost grafana.scaibu.localhost traefik.scaibu.localhost"
 
     if grep -q "api.scaibu.localhost" /etc/hosts 2>/dev/null; then
-        log "Hosts entries already present — skipping"
+        ok "Hosts entries already present in /etc/hosts"
     else
-        log "Adding hostnames to /etc/hosts (requires sudo)..."
-        echo "$hosts_entry" | sudo tee -a /etc/hosts >/dev/null
-        ok "Added: $hosts_entry"
+        log "Host entries missing in /etc/hosts."
+        log "To use local domain names, run:"
+        log "  echo \"$hosts_entry\" | sudo tee -a /etc/hosts"
+        ok "Skipped non-interactive sudo /etc/hosts modification"
     fi
 }
 

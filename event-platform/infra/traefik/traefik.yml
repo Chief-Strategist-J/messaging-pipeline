@@ -24,9 +24,6 @@ entryPoints:
       lifeCycle:
         requestAcceptGraceTimeout: "5s"
         graceTimeOut: "30s"
-    http:
-      tls:
-        certResolver: letsencrypt
 
   metrics:
     address: ":8899"
@@ -42,14 +39,6 @@ providers:
     directory: "/etc/traefik/dynamic"
     watch: true
 
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: "${TRAEFIK_ACME_EMAIL}"
-      storage: "/etc/traefik/acme/acme.json"
-      httpChallenge:
-        entryPoint: web
-
 api:
   dashboard: true
   insecure: false
@@ -63,18 +52,6 @@ metrics:
     addEntryPointsLabels: true
     addRoutersLabels: true
     addServicesLabels: true
-    buckets:
-      - 0.005
-      - 0.01
-      - 0.025
-      - 0.05
-      - 0.1
-      - 0.25
-      - 0.5
-      - 1.0
-      - 2.5
-      - 5.0
-      - 10.0
 
 tracing:
   otlp:
@@ -84,17 +61,7 @@ tracing:
 
 accessLog:
   format: json
-  filePath: ""
-  fields:
-    headers:
-      defaultMode: drop
-      names:
-        X-Forwarded-For: keep
-        X-Real-Ip: keep
-        X-Request-Id: keep
-        User-Agent: keep
-        Content-Type: keep
 
 log:
-  level: "${TRAEFIK_LOG_LEVEL}"
+  level: "INFO"
   format: json

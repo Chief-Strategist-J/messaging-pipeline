@@ -14,8 +14,8 @@ http:
           Server: ""
 
     real-ip:
-      forwardedHeaders:
-        trustedIPs:
+      ipWhiteList:
+        sourceRange:
           - "127.0.0.1/8"
           - "10.0.0.0/8"
           - "172.16.0.0/12"
@@ -23,8 +23,8 @@ http:
 
     api-ratelimit:
       rateLimit:
-        average: ${API_RATE_LIMIT_AVERAGE}
-        burst: ${API_RATE_LIMIT_BURST}
+        average: 200
+        burst: 500
         period: "1s"
         sourceCriterion:
           ipStrategy:
@@ -32,9 +32,8 @@ http:
 
     api-body-limit:
       buffering:
-        maxRequestBodyBytes: ${API_MAX_REQUEST_BODY_BYTES}
+        maxRequestBodyBytes: 10485760
         memRequestBodyBytes: 2097152
-        retryExpression: ""
 
     api-retry:
       retry:
@@ -51,7 +50,7 @@ http:
     grafana-auth:
       basicAuth:
         users:
-          - "${GRAFANA_TRAEFIK_BASICAUTH}"
+          - "admin:$2y$05$w1oSTcircIV65a2xF6gydesAmdtBiuyXMGru7VhCoubWjBjI7Ucpi"
         removeHeader: true
 
     grafana-security-headers:

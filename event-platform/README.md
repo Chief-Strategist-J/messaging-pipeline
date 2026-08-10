@@ -55,7 +55,7 @@ The setup script guarantees a **100% clean environment execution**. Every time `
 1. **Prerequisites Check**: Verifies all required CLI tools are present.
 2. **Environment Recreation**: Completely wipes and recreates [`infra/.env`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/.env) with fresh randomly generated passwords and configuration.
 3. **Nuke Existing State**: Stops all containers, removes project volumes, removes networks, and purges dangling build images.
-4. **Port Cleanup**: Automatically kills any process occupying ports `80, 443, 5432, 6379, 9092, 9093, 8081, 8083, 4317, 4318, 9090`.
+4. **Port Verification**: Verifies dedicated unique ports (`27488, 27443, 27432, 27479, 27492, 27493, 27481, 27483, 27417, 27418, 27490, 27402, 27480`) are free without killing non-project system services.
 5. **Storage & Cert Initialization**: Re-creates `acme.json` with strict `600` permissions and generates a self-signed TLS cert.
 6. **Hosts Entry**: Configures local hostnames in `/etc/hosts`.
 7. **Infrastructure Up**: Rebuilds and launches containers.

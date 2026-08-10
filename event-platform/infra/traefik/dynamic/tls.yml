@@ -1,4 +1,10 @@
 tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: "/etc/traefik/certs/local-selfsigned.crt"
+        keyFile: "/etc/traefik/certs/local-selfsigned.key"
+
   options:
     secure:
       minVersion: VersionTLS12
@@ -12,4 +18,4 @@ tls:
       curvePreferences:
         - CurveP521
         - CurveP384
-      sniStrict: true
+      sniStrict: false
