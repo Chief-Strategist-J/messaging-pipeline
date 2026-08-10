@@ -121,6 +121,12 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KAFKA_OPTS: "-javaagent:/usr/share/java/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: "kafka-connect"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_METRICS_EXPORTER: "none"
+
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/ || exit 1"]
       interval: 5s
@@ -191,7 +197,13 @@ services:
     environment:
       KAFKA_BROKERS: "kafka:9092"
       SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: "stream-processor"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_METRICS_EXPORTER: "none"
     networks: [backbone]
+
 
   tempo:
     image: grafana/tempo:latest

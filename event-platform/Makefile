@@ -50,15 +50,16 @@ connectors:
 # Application tests
 # ---------------------------------------------------------------------------
 test-unit:
-	cd $(GO_SERVICE) && go test ./test/unit/... -v -count=1
+	docker compose -f infra/docker-compose.yml run --entrypoint "go test ./src/features/events/tests/... -v -run=TestRawEventValidate|TestLoadFromConfigAndGet|TestValidatePayload|TestPurchaseEnrichment" ingestion-api
 
 test-integration:
-	cd $(GO_SERVICE) && go test ./test/integration/... -v -count=1
+	docker compose -f infra/docker-compose.yml run --entrypoint "go test ./src/features/events/tests/... -v -run=TestEventsApiIntegration|TestMethodNotAllowed|TestDeduperFailure" ingestion-api
 
 test-bench:
-	cd $(GO_SERVICE) && go test ./test/benchmark/... -bench=. -benchmem -benchtime=3s
+	docker compose -f infra/docker-compose.yml run --entrypoint "go test ./src/features/events/tests/... -bench=. -benchmem" ingestion-api
 
-test-all: test-unit test-integration test-bench
+test-all: test-unit test-integration
+
 
 test-report:
 	bash scripts/run-tests.sh

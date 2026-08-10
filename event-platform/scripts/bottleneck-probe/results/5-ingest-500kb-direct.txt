@@ -1,0 +1,5 @@
+    checks_total.......: 2259    74.469781/s
+    checks_succeeded...: 100.00% 2259 out of 2259
+    checks_failed......: 0.00%   0 out of 2259
+    http_req_duration..............: avg=642.49ms min=31.6ms  med=542.24ms p(90)=1.16s p(95)=1.39s p(99)=1.71s max=2.26s
+    http_reqs......................: 2259   74.469781/s

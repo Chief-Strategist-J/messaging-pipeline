@@ -1,0 +1,5 @@
+    checks_total.......: 15628   777.608501/s
+    checks_succeeded...: 100.00% 15628 out of 15628
+    checks_failed......: 0.00%   0 out of 15628
+    http_req_duration..............: avg=126.31ms min=1.9ms  med=111.54ms p(90)=224.45ms p(95)=265.68ms p(99)=363.84ms max=672.61ms
+    http_reqs......................: 15628  777.608501/s

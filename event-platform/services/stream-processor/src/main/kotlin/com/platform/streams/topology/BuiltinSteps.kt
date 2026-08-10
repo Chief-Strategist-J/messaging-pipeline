@@ -1,16 +1,20 @@
 package com.platform.streams.topology
 
-import com.platform.streams.Constants
 import com.platform.streams.topology.processors.ProcessorRegistry
+import com.platform.streams.topology.processors.DedupTransformer
+import org.apache.kafka.streams.kstream.TransformerSupplier
 
 fun registerBuiltinSteps() {
-    StepRegistry.register(Constants.STEP_DEDUP) { stream, _ ->
-        stream.transform(ProcessorRegistry.get(Constants.STEP_DEDUP))
+    // Register the dedup transformer supplier
+    ProcessorRegistry.register("dedup", TransformerSupplier { DedupTransformer() })
+
+    StepRegistry.register("dedup") { stream, _ ->
+        stream.transform(ProcessorRegistry.get("dedup"), "dedup-store")
     }
 
-    StepRegistry.register(Constants.STEP_FILTER_BY_TYPE) { stream, config ->
+    StepRegistry.register("filterByType") { stream, config ->
         @Suppress("UNCHECKED_CAST")
-        val allowed = config[Constants.CONFIG_KEY_ALLOWED_TYPES] as? List<String> ?: emptyList()
+        val allowed = config["allowedTypes"] as? List<String> ?: emptyList()
         stream.filter { _, v -> allowed.isEmpty() || v.eventType in allowed }
     }
 }

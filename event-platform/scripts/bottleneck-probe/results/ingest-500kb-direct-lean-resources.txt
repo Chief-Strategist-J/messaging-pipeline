@@ -1,0 +1,23 @@
+event-platform-ingestion-api-1 87.16% 135MiB / 1GiB
+event-platform-traefik-1 1.16% 92.64MiB / 15.49GiB
+event-platform-schema-registry-1 0.32% 62.35MiB / 15.49GiB
+event-platform-redis-1 2.43% 19.04MiB / 15.49GiB
+event-platform-kafka-1 61.05% 527.5MiB / 15.49GiB
+event-platform-postgres-1 2.51% 52.86MiB / 15.49GiB
+bold_pascal 93.42% 282.8MiB / 15.49GiB
+---
+bold_pascal 74.19% 289.2MiB / 15.49GiB
+event-platform-ingestion-api-1 171.93% 132.1MiB / 1GiB
+event-platform-traefik-1 0.00% 92.64MiB / 15.49GiB
+event-platform-schema-registry-1 0.45% 62.66MiB / 15.49GiB
+event-platform-redis-1 4.74% 19.15MiB / 15.49GiB
+event-platform-kafka-1 9.74% 535.7MiB / 15.49GiB
+event-platform-postgres-1 0.00% 52.89MiB / 15.49GiB
+---
+-- -- -- / --
+-- -- -- / --
+event-platform-traefik-1 0.00% 93.15MiB / 15.49GiB
+-- -- -- / --
+-- -- -- / --
+-- -- -- / --
+-- -- -- / --

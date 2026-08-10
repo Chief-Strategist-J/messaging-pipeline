@@ -1,0 +1,13 @@
+feature: events
+description: Event ingestion, validation, deduplication, custom enrichment, and ingestion to Kafka backbone.
+dependencies:
+  - shared/config
+  - shared/constants
+  - infra/adapters/kafka
+  - infra/adapters/redis
+decisions:
+  - validation: Use jsonparser for field validation to avoid full payload deserialization CPU overhead.
+  - dedup: SetNX in Redis to guarantee at-least-once edge deduplication.
+  - wire_format: Avro wire format with Confluent schema header for smaller payload size and schema registry safety.
+  - tracing: W3C Trace Context propagation injected into Kafka record headers for distributed correlation.
+criticality: High. Entry point for all edge event data. Low CPU overhead and high availability are critical.

@@ -1,0 +1,5 @@
+    checks_total.......: 17180   569.404049/s
+    checks_succeeded...: 100.00% 17180 out of 17180
+    checks_failed......: 0.00%   0 out of 17180
+    http_req_duration..............: avg=170.46ms min=8.6ms  med=153.63ms p(90)=270.95ms p(95)=328.95ms p(99)=557.02ms max=802.97ms
+    http_reqs......................: 17180  569.404049/s

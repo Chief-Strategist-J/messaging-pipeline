@@ -1,0 +1,13 @@
+events:
+  - name: heartbeat
+    version: v1
+    owner: core-team
+    description: "System health check / ping event"
+  - name: page_view
+    version: v1
+    owner: analytics-team
+    description: "User page view tracking event"
+  - name: purchase
+    version: v1
+    owner: billing-team
+    description: "User checkout purchase completion event"

@@ -1,0 +1,46 @@
+event-platform-ingestion-api-1 11.02% 67.08MiB / 1GiB
+event-platform-traefik-1 36.10% 107.3MiB / 15.49GiB
+event-platform-schema-registry-1 0.39% 59.73MiB / 15.49GiB
+event-platform-redis-1 5.20% 18.27MiB / 15.49GiB
+event-platform-kafka-1 19.22% 528.3MiB / 15.49GiB
+event-platform-postgres-1 0.10% 65.65MiB / 15.49GiB
+fervent_golick 26.12% 36.97MiB / 15.49GiB
+---
+fervent_golick 37.58% 43.03MiB / 15.49GiB
+event-platform-ingestion-api-1 33.33% 65.16MiB / 1GiB
+event-platform-traefik-1 70.79% 129.4MiB / 15.49GiB
+event-platform-schema-registry-1 0.47% 60.18MiB / 15.49GiB
+event-platform-redis-1 6.60% 14.8MiB / 15.49GiB
+event-platform-kafka-1 63.33% 585.9MiB / 15.49GiB
+event-platform-postgres-1 0.11% 65.68MiB / 15.49GiB
+---
+fervent_golick 29.07% 43.36MiB / 15.49GiB
+event-platform-ingestion-api-1 23.64% 65.36MiB / 1GiB
+event-platform-traefik-1 65.66% 131.6MiB / 15.49GiB
+event-platform-schema-registry-1 0.38% 60.2MiB / 15.49GiB
+event-platform-redis-1 5.12% 15.13MiB / 15.49GiB
+event-platform-kafka-1 36.86% 605.2MiB / 15.49GiB
+event-platform-postgres-1 0.11% 65.7MiB / 15.49GiB
+---
+fervent_golick 38.01% 45.09MiB / 15.49GiB
+event-platform-ingestion-api-1 30.43% 66.45MiB / 1GiB
+event-platform-traefik-1 76.74% 132.2MiB / 15.49GiB
+event-platform-schema-registry-1 0.36% 60.2MiB / 15.49GiB
+event-platform-redis-1 7.69% 19.46MiB / 15.49GiB
+event-platform-kafka-1 7.67% 529.4MiB / 15.49GiB
+event-platform-postgres-1 0.07% 65.72MiB / 15.49GiB
+---
+fervent_golick 46.11% 45.78MiB / 15.49GiB
+event-platform-ingestion-api-1 34.38% 67.29MiB / 1GiB
+event-platform-traefik-1 80.34% 136.9MiB / 15.49GiB
+event-platform-schema-registry-1 0.34% 60.21MiB / 15.49GiB
+event-platform-redis-1 7.18% 18.96MiB / 15.49GiB
+event-platform-kafka-1 15.63% 531.6MiB / 15.49GiB
+event-platform-postgres-1 2.02% 65.73MiB / 15.49GiB
+---
+event-platform-ingestion-api-1 0.09% 66.99MiB / 1GiB
+event-platform-traefik-1 0.01% 123MiB / 15.49GiB
+event-platform-schema-registry-1 0.28% 61.79MiB / 15.49GiB
+event-platform-redis-1 0.75% 18.11MiB / 15.49GiB
+event-platform-kafka-1 125.55% 604.6MiB / 15.49GiB
+event-platform-postgres-1 0.08% 65.75MiB / 15.49GiB

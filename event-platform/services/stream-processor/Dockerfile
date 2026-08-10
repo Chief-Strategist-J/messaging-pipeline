@@ -2,9 +2,13 @@ FROM gradle:8.5-jdk21 AS build
 WORKDIR /app
 COPY build.gradle.kts settings.gradle.kts ./
 COPY src ./src
-RUN gradle build -x test --no-daemon
+RUN gradle installDist -x test --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
-COPY --from=build /app/build/libs/*.jar /app.jar
+WORKDIR /app
+ADD --chmod=644 https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.5.0/opentelemetry-javaagent.jar ./opentelemetry-javaagent.jar
+COPY --from=build /app/build/install/stream-processor ./
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["./bin/stream-processor"]
+
+

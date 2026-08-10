@@ -23,8 +23,8 @@ http:
 
     api-ratelimit:
       rateLimit:
-        average: 200
-        burst: 500
+        average: 2500
+        burst: 5000
         period: "1s"
         sourceCriterion:
           ipStrategy:
@@ -50,7 +50,7 @@ http:
     grafana-auth:
       basicAuth:
         users:
-          - "admin:$2y$05$S8uwTOf7kKnhMLc1nAHVtOkUDc15PDaFd8JAo/T3xnxYBSmVrA9A6"
+          - "admin:$2y$05$d83lByX4ils6.KlUConblexWFdGQDMTo2Scd3uR/4p/yYMy64BEL."
         removeHeader: true
 
     grafana-security-headers:

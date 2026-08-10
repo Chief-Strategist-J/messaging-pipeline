@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"event-platform/ingestion-api/internal/config"
-	"event-platform/ingestion-api/internal/constants"
-	"event-platform/ingestion-api/internal/customprocessors"
-	"event-platform/ingestion-api/internal/eventtypes"
-	"event-platform/ingestion-api/internal/httpapi"
-	"event-platform/ingestion-api/internal/ingest"
-	"event-platform/ingestion-api/internal/observability"
+	v1 "event-platform/ingestion-api/src/api/rest/v1"
+	"event-platform/ingestion-api/src/features/events"
+	"event-platform/ingestion-api/src/infra/adapters/kafka"
+	"event-platform/ingestion-api/src/infra/adapters/redis"
+	"event-platform/ingestion-api/src/infra/tracing"
+	"event-platform/ingestion-api/src/shared/config"
+	"event-platform/ingestion-api/src/shared/constants"
 )
 
 const (
@@ -30,29 +30,27 @@ func main() {
 	go func() { log.Println("pprof:", http.ListenAndServe(":6060", nil)) }()
 
 	cfg := config.Load()
-	shutdownTracing := observability.InitTracing(cfg.OTLPEndpoint)
+	shutdownTracing := tracing.InitTracing(cfg.OTLPEndpoint)
 	defer shutdownTracing(context.Background())
 
-	if err := eventtypes.LoadFromFile(cfg.EventTypesPath); err != nil {
+	if err := events.FeatureLoadFromFile(cfg.EventTypesPath); err != nil {
 		log.Fatalf(constants.ErrEventTypeMissing, err)
 	}
-	eventtypes.RegisterCustomProcessor(constants.CustomProcessorPurchase, customprocessors.PurchaseEnrichment)
+	events.FeatureRegisterCustomProcessor(constants.CustomProcessorPurchase, events.FeaturePurchaseEnrichment)
 
-	producer, err := ingest.NewKafkaProducer(cfg.KafkaBrokers, cfg.SchemaID)
+	producer, err := kafka.NewKafkaProducer(cfg.KafkaBrokers, cfg.SchemaID)
 	if err != nil {
 		log.Fatalf(constants.ErrKafkaProducerInit, err)
 	}
 	defer producer.Close()
-	deduper := ingest.NewRedisDeduper(cfg.RedisAddr)
+	deduper := redis.NewRedisDeduper(cfg.RedisAddr)
 
-	mux := http.NewServeMux()
-	handler := httpapi.NewHandler(producer, deduper)
-	mux.Handle(constants.RouteEvents, httpapi.WithTracing(httpapi.WithRateLimit(handler, cfg.MaxConcurrent)))
-	mux.HandleFunc(constants.RouteHealth, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	handler := v1.NewHandler(producer, deduper)
+	router := v1.NewRouter(handler, cfg.MaxConcurrent)
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,

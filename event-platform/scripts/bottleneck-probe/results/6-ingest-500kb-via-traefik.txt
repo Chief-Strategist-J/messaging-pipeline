@@ -1,0 +1,5 @@
+    checks_total.......: 1355    44.602414/s
+    checks_succeeded...: 100.00% 1355 out of 1355
+    checks_failed......: 0.00%   0 out of 1355
+    http_req_duration..............: avg=1.07s min=119.66ms med=823.22ms p(90)=1.81s p(95)=2.43s p(99)=5.35s max=6.54s
+    http_reqs......................: 1355   44.602414/s

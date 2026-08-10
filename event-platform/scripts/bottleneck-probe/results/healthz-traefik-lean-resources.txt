@@ -1,0 +1,37 @@
+event-platform-ingestion-api-1 6.08% 67.21MiB / 1GiB
+event-platform-traefik-1 8.21% 123.4MiB / 15.49GiB
+event-platform-schema-registry-1 1.83% 52MiB / 15.49GiB
+event-platform-redis-1 0.86% 18.94MiB / 15.49GiB
+event-platform-kafka-1 66.63% 576.8MiB / 15.49GiB
+event-platform-postgres-1 0.01% 59.32MiB / 15.49GiB
+---
+friendly_mcclintock 65.87% 79.32MiB / 15.49GiB
+event-platform-ingestion-api-1 29.42% 66.52MiB / 1GiB
+event-platform-traefik-1 123.94% 121.9MiB / 15.49GiB
+event-platform-schema-registry-1 0.33% 52.69MiB / 15.49GiB
+event-platform-redis-1 7.91% 18.94MiB / 15.49GiB
+event-platform-kafka-1 1.99% 496.8MiB / 15.49GiB
+event-platform-postgres-1 0.00% 59.64MiB / 15.49GiB
+---
+friendly_mcclintock 54.78% 79.07MiB / 15.49GiB
+event-platform-ingestion-api-1 23.54% 23.16MiB / 1GiB
+event-platform-traefik-1 99.74% 118.5MiB / 15.49GiB
+event-platform-schema-registry-1 0.34% 52.76MiB / 15.49GiB
+event-platform-redis-1 0.76% 19.01MiB / 15.49GiB
+event-platform-kafka-1 49.47% 511.9MiB / 15.49GiB
+event-platform-postgres-1 0.00% 59.64MiB / 15.49GiB
+---
+friendly_mcclintock 57.31% 79.72MiB / 15.49GiB
+event-platform-ingestion-api-1 21.01% 28.73MiB / 1GiB
+event-platform-traefik-1 66.51% 114MiB / 15.49GiB
+event-platform-schema-registry-1 0.39% 56.68MiB / 15.49GiB
+event-platform-redis-1 0.73% 19.01MiB / 15.49GiB
+event-platform-kafka-1 88.47% 573.3MiB / 15.49GiB
+event-platform-postgres-1 0.00% 59.64MiB / 15.49GiB
+---
+event-platform-ingestion-api-1 0.00% 23.46MiB / 1GiB
+event-platform-traefik-1 0.12% 117.6MiB / 15.49GiB
+event-platform-schema-registry-1 0.34% 56.77MiB / 15.49GiB
+event-platform-redis-1 0.64% 19.01MiB / 15.49GiB
+event-platform-kafka-1 1.50% 501.6MiB / 15.49GiB
+event-platform-postgres-1 13.74% 55.75MiB / 15.49GiB

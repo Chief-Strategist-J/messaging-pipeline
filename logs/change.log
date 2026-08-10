@@ -1,0 +1,6 @@
+[2026-08-10T17:45:00Z] Refactoring ingestion-api and stream-processor for optimal architecture, tracing, and event registry
+└── File: logs/change.log
+    ├── Choice: Implement vertical feature slice for ingestion-api, fix stream-processor jar packaging, and add end-to-end trace propagation.
+    └── Changes:
+        ├── ingestion-api -> Refactored to src/ package structure with vertical slices under features/events. Centralized configurations.
+        └── stream-processor -> Fixed docker build to use installDist so dependencies and main manifest are packed correctly.

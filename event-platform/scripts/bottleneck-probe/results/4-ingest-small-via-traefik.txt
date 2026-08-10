@@ -1,0 +1,5 @@
+    checks_total.......: 9135    301.691696/s
+    checks_succeeded...: 100.00% 9135 out of 9135
+    checks_failed......: 0.00%   0 out of 9135
+    http_req_duration..............: avg=324.54ms min=30.56ms med=290.06ms p(90)=520.89ms p(95)=634.12ms p(99)=999.06ms max=1.49s
+    http_reqs......................: 9135   301.691696/s

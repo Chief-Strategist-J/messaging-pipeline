@@ -12,7 +12,7 @@ class ProcessorRegistryTest {
 
     @Test
     fun `registered processor is retrievable`() {
-        val supplier = TransformerSupplier<String, RawEvent, KeyValue<String, RawEvent>> { null }
+        val supplier = TransformerSupplier<String, RawEvent, KeyValue<String, RawEvent>?> { null }
         ProcessorRegistry.register("testProc", supplier)
         val result = ProcessorRegistry.get("testProc")
         assertNotNull(result)
