@@ -55,7 +55,7 @@ func main() {
 	if err := events.FeatureLoadFromFile(cfg.EventTypesPath); err != nil {
 		os.Exit(1)
 	}
-	
+
 	events.FeatureRegisterCustomProcessor(constants.CustomProcessorPurchase, events.FeaturePurchaseEnrichment)
 
 	producer, err := kafka.NewKafkaProducer(cfg.KafkaBrokers, cfg.SchemaID)
