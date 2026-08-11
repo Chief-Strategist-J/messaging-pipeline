@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -26,25 +25,45 @@ const (
 	shutdownWait = 10 * time.Second
 )
 
+func runPprofServer() {
+	_ = http.ListenAndServe(":6060", nil)
+}
+
+func runHTTPServer(srv *http.Server) {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		os.Exit(1)
+	}
+}
+
+func waitForShutdown(srv *http.Server) {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	<-stop
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
+	defer cancel()
+	_ = srv.Shutdown(ctx)
+}
+
 func main() {
-	go func() { log.Println("pprof:", http.ListenAndServe(":6060", nil)) }()
+	go runPprofServer()
 
 	cfg := config.Load()
 	shutdownTracing := tracing.InitTracing(cfg.OTLPEndpoint)
 	defer shutdownTracing(context.Background())
 
 	if err := events.FeatureLoadFromFile(cfg.EventTypesPath); err != nil {
-		log.Fatalf(constants.ErrEventTypeMissing, err)
+		os.Exit(1)
 	}
 	events.FeatureRegisterCustomProcessor(constants.CustomProcessorPurchase, events.FeaturePurchaseEnrichment)
 
 	producer, err := kafka.NewKafkaProducer(cfg.KafkaBrokers, cfg.SchemaID)
 	if err != nil {
-		log.Fatalf(constants.ErrKafkaProducerInit, err)
+		os.Exit(1)
 	}
 	defer producer.Close()
-	deduper := redis.NewRedisDeduper(cfg.RedisAddr)
 
+	deduper := redis.NewRedisDeduper(cfg.RedisAddr)
 	handler := v1.NewHandler(producer, deduper)
 	router := v1.NewRouter(handler, cfg.MaxConcurrent)
 
@@ -56,20 +75,7 @@ func main() {
 		IdleTimeout:  idleTimeout,
 	}
 
-	go func() {
-		log.Printf(constants.LogListening, cfg.ListenAddr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf(constants.ErrServerError, err)
-		}
-	}()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
-	<-stop
-
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf(constants.ErrShutdownFailed, err)
-	}
+	go runHTTPServer(srv)
+	waitForShutdown(srv)
 }
+
