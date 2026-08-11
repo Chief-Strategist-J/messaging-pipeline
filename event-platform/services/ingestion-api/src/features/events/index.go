@@ -12,4 +12,5 @@ var (
 	FeatureGetCustomProcessor      = GetCustomProcessor
 	FeatureValidatePayload         = ValidatePayload
 	FeaturePurchaseEnrichment      = PurchaseEnrichment
+	FeatureCreateIngestionPipeline = CreateIngestionPipeline
 )
