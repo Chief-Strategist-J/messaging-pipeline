@@ -6,7 +6,7 @@ object Constants {
 
     const val APPLICATION_ID = "stream-processor"
     const val STREAM_THREADS = 4
-    const val REPLICATION_FACTOR = 3
+    const val REPLICATION_FACTOR = 1
     const val SHUTDOWN_TIMEOUT_SECONDS = 10L
 
     const val ENV_KAFKA_BROKERS = "KAFKA_BROKERS"

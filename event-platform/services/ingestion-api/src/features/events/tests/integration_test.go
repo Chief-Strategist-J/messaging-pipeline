@@ -36,7 +36,6 @@ func (m *mockDeduper) SeenBefore(ctx context.Context, eventID string) (bool, err
 }
 
 func TestEventsApiIntegration(t *testing.T) {
-	// Register mock event config
 	cfg := events.RegistryConfig{
 		EventTypes: []events.EventTypeConfig{
 			{
@@ -55,7 +54,6 @@ func TestEventsApiIntegration(t *testing.T) {
 
 	handler := v1.NewHandler(producer, deduper)
 
-	// Case 1: Valid Post
 	reqBody := `{"event_id":"id-123","event_type":"page_view","occurred_at":1718020000000,"payload":"{\"url\":\"http://test.com\"}"}`
 	req := httptest.NewRequest("POST", "/v1/events", bytes.NewBufferString(reqBody))
 	rec := httptest.NewRecorder()
@@ -70,7 +68,6 @@ func TestEventsApiIntegration(t *testing.T) {
 		t.Errorf("expected event id-123 to be produced, got %v", producer.produced)
 	}
 
-	// Case 2: Duplicate ID (should return StatusOK but not produce)
 	reqDup := httptest.NewRequest("POST", "/v1/events", bytes.NewBufferString(reqBody))
 	recDup := httptest.NewRecorder()
 
@@ -84,7 +81,6 @@ func TestEventsApiIntegration(t *testing.T) {
 		t.Errorf("expected event to NOT be produced twice")
 	}
 
-	// Case 3: Invalid Payload (missing url field)
 	invalidBody := `{"event_id":"id-999","event_type":"page_view","occurred_at":1718020000000,"payload":"{\"path\":\"/about\"}"}`
 	reqInv := httptest.NewRequest("POST", "/v1/events", bytes.NewBufferString(invalidBody))
 	recInv := httptest.NewRecorder()

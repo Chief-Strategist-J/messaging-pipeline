@@ -39,7 +39,6 @@ func (p *kafkaProducer) Produce(ctx context.Context, topic string, eventID strin
 	}
 	record := &kgo.Record{Topic: topic, Key: []byte(eventID), Value: avroBytes}
 
-	// Propagate OpenTelemetry tracing context via Kafka Record Headers
 	carrier := &RecordHeadersCarrier{Headers: record.Headers}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	record.Headers = carrier.Headers
@@ -67,7 +66,6 @@ func (t *tracedProducer) Close() {
 	t.inner.Close()
 }
 
-// RecordHeadersCarrier implements propagation.TextMapCarrier for Kafka headers
 type RecordHeadersCarrier struct {
 	Headers []kgo.RecordHeader
 }

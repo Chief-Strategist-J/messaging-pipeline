@@ -8,7 +8,6 @@ import (
 )
 
 func TestRawEventValidate(t *testing.T) {
-	// Test valid envelope
 	evt := events.RawEvent{
 		EventID:   "evt-123",
 		EventType: "heartbeat",
@@ -17,7 +16,6 @@ func TestRawEventValidate(t *testing.T) {
 		t.Fatalf("expected valid envelope, got error: %v", err)
 	}
 
-	// Test missing event_id
 	evtNoID := events.RawEvent{
 		EventType: "heartbeat",
 	}
@@ -25,7 +23,6 @@ func TestRawEventValidate(t *testing.T) {
 		t.Fatal("expected error for missing event_id")
 	}
 
-	// Test missing event_type
 	evtNoType := events.RawEvent{
 		EventID: "evt-123",
 	}
@@ -71,19 +68,16 @@ func TestValidatePayload(t *testing.T) {
 		},
 	}
 
-	// Valid payload
 	payload := []byte(`{"amount": 100, "currency": "USD"}`)
 	if err := events.FeatureValidatePayload(context.Background(), cfg, payload); err != nil {
 		t.Fatalf("expected payload to be valid, got: %v", err)
 	}
 
-	// Missing required field
 	payloadMissing := []byte(`{"currency": "USD"}`)
 	if err := events.FeatureValidatePayload(context.Background(), cfg, payloadMissing); err == nil {
 		t.Fatal("expected error for missing required field")
 	}
 
-	// Exceeds max length
 	payloadTooLong := []byte(`{"amount": 100, "currency": "USDOLLARS"}`)
 	if err := events.FeatureValidatePayload(context.Background(), cfg, payloadTooLong); err == nil {
 		t.Fatal("expected error for max length violation")

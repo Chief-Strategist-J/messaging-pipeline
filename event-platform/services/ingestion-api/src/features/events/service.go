@@ -43,7 +43,6 @@ func Get(name string) (EventTypeConfig, bool) {
 	return cfg, ok
 }
 
-// CustomProcessor processes / enriches a raw payload
 type CustomProcessor func(ctx context.Context, payloadJSON []byte) ([]byte, error)
 
 var customProcessors = map[string]CustomProcessor{}
@@ -60,7 +59,6 @@ func GetCustomProcessor(name string) (CustomProcessor, bool) {
 	return fn, ok
 }
 
-// ValidatePayload validates a payload against EventTypeConfig using jsonparser
 func ValidatePayload(ctx context.Context, cfg EventTypeConfig, payloadJSON []byte) error {
 	_, span := otel.Tracer("events").Start(ctx, "events.ValidatePayload")
 	defer span.End()

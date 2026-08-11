@@ -19,7 +19,6 @@ data class RawEvent(
 class RawEventSerializer : Serializer<RawEvent> {
     override fun serialize(topic: String?, data: RawEvent?): ByteArray? {
         if (data == null) return null
-        // Simple and robust text serialization to avoid heavy JSON parsing dependencies
         val str = "${data.eventId}|${data.eventType}|${data.occurredAt}|${data.payload}"
         return str.toByteArray(StandardCharsets.UTF_8)
     }

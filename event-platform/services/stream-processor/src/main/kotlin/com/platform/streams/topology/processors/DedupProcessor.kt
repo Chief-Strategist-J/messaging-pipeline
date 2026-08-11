@@ -18,7 +18,7 @@ class DedupTransformer : Transformer<String, RawEvent, KeyValue<String, RawEvent
         if (value == null) return null
         val eventId = value.eventId
         if (store.get(eventId) != null) {
-            return null // Duplicate detected, drop it
+            return null
         }
         store.put(eventId, value.occurredAt)
         return KeyValue(key, value)

@@ -5,7 +5,6 @@ import com.platform.streams.topology.processors.DedupTransformer
 import org.apache.kafka.streams.kstream.TransformerSupplier
 
 fun registerBuiltinSteps() {
-    // Register the dedup transformer supplier
     ProcessorRegistry.register("dedup", TransformerSupplier { DedupTransformer() })
 
     StepRegistry.register("dedup") { stream, _ ->

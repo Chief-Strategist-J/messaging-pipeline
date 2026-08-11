@@ -19,7 +19,6 @@ class TopologyBuilder(
     fun build(): Topology {
         val builder = StreamsBuilder()
 
-        // Register persistent deduplication state store
         val dedupStoreBuilder = Stores.keyValueStoreBuilder(
             Stores.persistentKeyValueStore("dedup-store"),
             Serdes.String(),
@@ -32,7 +31,6 @@ class TopologyBuilder(
             Consumed.with(serdes.stringSerde(), serdes.genericAvroSerde())
         )
 
-        // Map GenericRecord from Avro to our pipeline model RawEvent
         var rawStream = stream.mapValues { _, v ->
             RawEvent(
                 eventId = v.get("event_id")?.toString() ?: "",
@@ -42,12 +40,10 @@ class TopologyBuilder(
             )
         }
 
-        // Apply steps dynamically
         for (step in definition.steps) {
             rawStream = StepRegistry.get(step.type)(rawStream, step.config)
         }
 
-        // Aggregate and send to sink
         rawStream
             .groupBy({ _, v -> extractField(v, definition.groupByField) }, serdes.groupedByType())
             .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(definition.windowMinutes)))
