@@ -173,13 +173,12 @@ EOF
 }
 
 nuke_everything() {
-    step "STEP 3 — Destroying all existing state (volumes, networks, containers, images)"
+    step "STEP 3 — Destroying existing runtime state (volumes, networks, containers)"
 
-    log "Stopping and removing all project containers, volumes, and networks..."
+    log "Stopping and removing project containers, volumes, and networks..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down \
         --volumes \
         --remove-orphans \
-        --rmi local \
         2>/dev/null || true
 
     log "Force-removing any lingering project containers..."
@@ -194,10 +193,7 @@ nuke_everything() {
     docker volume ls --filter "name=${PROJECT_NAME}" -q \
         | xargs -r docker volume rm -f 2>/dev/null || true
 
-    log "Removing dangling images from project builds..."
-    docker image prune -f --filter "label=com.docker.compose.project=$PROJECT_NAME" 2>/dev/null || true
-
-    ok "All previous state destroyed"
+    ok "Previous runtime state destroyed (images preserved)"
 }
 
 free_ports() {
@@ -285,7 +281,23 @@ build_and_start() {
     step "STEP 7 — Building and starting all services"
 
     cd "$PROJECT_ROOT"
-    retry_cmd "Docker Compose build and startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
+    log "Checking missing base images before pulling..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config --images 2>/dev/null | sort -u | while read -r img; do
+        if [ -n "$img" ]; then
+            if ! docker image inspect "$img" >/dev/null 2>&1; then
+                log "Base image missing locally ($img). Pulling..."
+                docker pull "$img" || true
+            else
+                log "Image exists locally: $img (skipping pull)"
+            fi
+        fi
+    done
+
+    retry_cmd "Docker Compose startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --no-build
+    if [ $? -ne 0 ]; then
+        log "Attempting docker compose build for local microservices..."
+        retry_cmd "Docker Compose build and startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
+    fi
 
     ok "All containers started"
 }
