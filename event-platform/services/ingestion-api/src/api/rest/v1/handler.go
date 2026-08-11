@@ -40,6 +40,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	case rules.ResultDuplicate:
 		w.WriteHeader(http.StatusOK)
+
 	case rules.ResultInvalidPayload, rules.ResultUnregisteredType:
 		errMsg := constants.ErrInvalidPayload
 		if evalCtx.Err != nil {
