@@ -56,4 +56,3 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, constants.ErrInvalidPayload, http.StatusBadRequest)
 	}
 }
-

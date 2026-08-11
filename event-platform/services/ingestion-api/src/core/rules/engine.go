@@ -103,4 +103,3 @@ func (e *Engine) Evaluate(ctx context.Context, evalCtx *EvaluationContext) error
 	}
 	return nil
 }
-

@@ -79,4 +79,3 @@ func main() {
 	go runHTTPServer(srv)
 	waitForShutdown(srv)
 }
-
