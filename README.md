@@ -294,109 +294,104 @@ graph LR
 
 ## 🔍 4. OpenTelemetry Distributed Tracing Pipeline
 
-The Tracing Pipeline extracts W3C trace context at the edge gateway, propagates trace IDs through service invocations, and collects distributed spans into Grafana Tempo.
+The Tracing Pipeline extracts W3C trace context at the Traefik edge gateway, propagates trace IDs across all services via Kafka record headers, and stitches all spans from all services into a single combined waterfall in Grafana Tempo. **One Trace ID = One complete view across all services.**
 
-### In-Depth Visual Architecture Diagram
+### End-to-End Trace Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                      DISTRIBUTED TRACE CONTEXT & SPAN PROPAGATION                       │
+│                 FULL END-TO-END DISTRIBUTED TRACE — ALL SERVICES COMBINED               │
 │                                                                                         │
-│    ┌──────────────────────────────┐         W3C traceparent Header                      │
-│    │ Traefik Ingress Gateway      │───────────────────────────────────────────┐         │
-│    │ Root Span: http.request      │                                           │         │
-│    └──────────────┬───────────────┘                                           │         │
-│                   │ OTLP gRPC (:27417)                                        ▼         │
-│                   │                                            ┌──────────────────────┐ │
-│                   │                                            │ Go Ingestion API     │ │
-│                   │                                            │ Span: http.ingest    │ │
-│                   │                                            └──────────┬───────────┘ │
-│                   │                                                       │ OTLP gRPC   │
-│                   ▼                                                       ▼             │
-│    ┌──────────────────────────────────────────────────────────────────────────────────┐ │
-│    │ OpenTelemetry Collector (Ports: 27417 gRPC / 27418 HTTP)                        │ │
-│    └──────────────────────────────────────────┬───────────────────────────────────────┘ │
-└───────────────────────────────────────────────┼─────────────────────────────────────────┘
-                                                │ Batch Spans
-                                                ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           GRAFANA TEMPO TRACE STORAGE ENGINE                            │
-│                                               │                                         │
-│                                               ▼ Query Spans                             │
-│                           ┌───────────────────────────────────────┐                     │
-│                           │ Grafana Tempo Explorer (:27402)       │                     │
-│                           └───────────────────────────────────────┘                     │
+│  [traefik]          POST /v1/events                          ████████████████  25ms     │
+│    │                                                                                    │
+│  [ingestion-api]    POST /v1/events                          ████████████      120ms    │
+│    ├─               rule:parse-envelope                      ██  3ms                    │
+│    ├─               rule:lookup-event-type                   █   2ms                    │
+│    ├─               rule:validate-payload-schema             █   2ms                    │
+│    ├─               rule:custom-enrichment                   █   1ms                    │
+│    ├─               rule:deduplication-check                 ██  2ms                    │
+│    └─               rule:produce-kafka-event                 ████████  106ms            │
+│                       └─ kafka.produce → events.raw topic                               │
+│                                 │ (W3C traceparent injected into Kafka record header)   │
+│  [stream-processor]   kotlin-stream:map-raw-event            ██   5ms                   │
+│    └─                 kotlin-stream:dedup-check              █    2ms                   │
+│                                 │                                                      │
+│  [kafka-connect]      INSERT INTO raw_events (...)           ███  8ms                   │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ```mermaid
 graph LR
     Traefik[Traefik Gateway] --> GoAPI[Go Ingestion API]
-    Traefik --> OTel[OpenTelemetry Collector]
-    GoAPI --> OTel
-    OTel --> Tempo[Grafana Tempo Store]
+    GoAPI -->|W3C traceparent in Kafka header| KafkaRaw[[events.raw]]
+    KafkaRaw --> KStreams[Kotlin stream-processor]
+    KafkaRaw --> Connect[kafka-connect JDBC Sink]
+    Connect --> PG[(PostgreSQL)]
+    Traefik -->|OTLP gRPC| OTel[OTel Collector]
+    GoAPI -->|OTLP gRPC| OTel
+    KStreams -->|OTLP gRPC via JavaAgent| OTel
+    Connect -->|OTLP gRPC via JavaAgent| OTel
+    OTel --> Tempo[Grafana Tempo]
     Tempo --> Grafana[Grafana Explorer]
 ```
 
+### Span Names Reference
+
+| Service | Span Name | Description |
+|---|---|---|
+| `traefik` | `POST` / `ReverseProxy` | Edge ingress & proxy routing |
+| `ingestion-api` | `POST /v1/events` | Full HTTP handler span |
+| `ingestion-api` | `rule:parse-envelope` | JSON envelope parsing |
+| `ingestion-api` | `rule:lookup-event-type` | Event type registry lookup |
+| `ingestion-api` | `rule:validate-payload-schema` | Avro schema validation |
+| `ingestion-api` | `rule:custom-enrichment` | Custom metadata enrichment |
+| `ingestion-api` | `rule:deduplication-check` | Redis SETNX dedup check |
+| `ingestion-api` | `rule:produce-kafka-event` | Kafka produce + W3C header inject |
+| `ingestion-api` | `kafka.produce` | Low-level Kafka write |
+| `stream-processor` | `kotlin-stream:map-raw-event` | Avro → RawEvent mapping |
+| `stream-processor` | `kotlin-stream:dedup-check` | RocksDB dedup transformer |
+| `kafka-connect` | `INSERT INTO raw_events (...)` | JDBC SQL database write |
+
 ### Deep Technical Specifications
-- **Trace Propagation Protocol**: W3C `traceparent` HTTP headers (`00-<trace_id>-<parent_id>-01`).
-- **Collector Endpoint**: OpenTelemetry Collector listening on port `27417` (gRPC) and `27418` (HTTP).
-- **Backend Storage**: Grafana Tempo for span indexing and search retrieval.
+- **Trace Propagation Protocol**: W3C `traceparent` HTTP headers injected into Kafka record headers by `ingestion-api` producer (`RecordHeadersCarrier`). Extracted automatically by OpenTelemetry JavaAgent in JVM services.
+- **Non-Blocking Export**: Go API uses `BatchSpanProcessor` with 16,384 queue capacity, 2,048 batch size, 500ms timeout — fully decoupled from request handling threads. JVM services use `OTEL_BSP_MAX_QUEUE_SIZE=16384` and `OTEL_BSP_SCHEDULE_DELAY=500`.
+- **Exporter Protocol**: All services export spans via **OTLP gRPC** on port `4317`. Using `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` for JVM services.
+- **Collector Endpoint**: OpenTelemetry Collector listening on port `27417` (gRPC) and `27418` (HTTP), forwarding to Tempo via HTTP.
+- **Backend Storage**: Grafana Tempo stores traces with 24-hour retention. Tempo is on the `backbone` Docker network — all services resolve it by hostname.
+- **Trace Retention**: 24 hours (`max_block_duration: 24h` in `tempo.yaml`).
 
 ---
 
 ## 📊 5. How to Read & Inspect Traces (Waterfall Guide)
 
-### Interactive Trace Waterfall Diagram
+### Step-by-Step Operator Guide
+1. Open Grafana: [http://localhost:27402](http://localhost:27402) — login `admin` / `Scaibu@123`.
+2. Click **Explore** → select **Tempo** as datasource.
+3. Click **Search** → set **Service Name** = `ingestion-api` → **Run query**.
+4. Click any trace row — Grafana automatically stitches spans from **all services** (`traefik`, `ingestion-api`, `stream-processor`, `kafka-connect`) into one combined waterfall.
+5. Alternatively, paste a specific **Trace ID** directly in the search box to jump straight to a request.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              TRACE WATERFALL TIME SPAN GRAPH                            │
-│                                                                                         │
-│ [Span 1] Traefik Edge (http.request)                                                    │
-│ ├─────────────────────────────────────────────────────────────────────────────────────┤ │
-│                                                                                         │
-│ [Span 2] Go Ingestion API (http.ingest)                                                 │
-│    ├───────────────────────────────────────────────────────────────────────────────┤    │
-│                                                                                         │
-│ [Span 3] Redis Deduplication Check (redis.dedup)                                        │
-│       ├───┤ (Duration: 1.2ms)                                                             │
-│                                                                                         │
-│ [Span 4] Schema Registry Fetch (schema.fetch)                                           │
-│           ├──────┤ (Duration: 2.4ms)                                                    │
-│                                                                                         │
-│ [Span 5] Kafka Producer Write (kafka.produce)                                           │
-│                  ├─────────────────────────────────────────┤ (Duration: 5.1ms)          │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
+### What You Will See
 
 ```mermaid
 gantt
-    title Trace Waterfall — Single Request Lifecycle (illustrative)
+    title Trace Waterfall — Single Request End-to-End (illustrative)
     dateFormat  x
     axisFormat %L ms
-    section Gateway
-    http.request (Traefik)      :a1, 0, 12
-    section API
-    http.ingest (Go API)        :a2, 1, 9
-    section Cache
-    redis.dedup (SETNX)         :a3, 2, 1
-    section Schema
-    schema.fetch                :a4, 3, 2
-    section Kafka
-    kafka.produce               :a5, 5, 5
+    section traefik
+    POST ReverseProxy           :a1, 0, 25
+    section ingestion-api
+    POST /v1/events             :a2, 1, 120
+    rule parse-envelope         :a3, 2, 3
+    rule validate-schema        :a4, 5, 2
+    rule deduplication-check    :a5, 7, 2
+    rule produce-kafka-event    :a6, 9, 106
+    section stream-processor
+    kotlin-stream map-raw-event :a7, 115, 5
+    kotlin-stream dedup-check   :a8, 118, 2
+    section kafka-connect
+    INSERT INTO raw_events      :a9, 120, 8
 ```
-
-### Step-by-Step Operator Guide
-1. **Open Grafana Dashboard**: Navigate to [http://grafana.scaibu.localhost:27488](http://grafana.scaibu.localhost:27488) (or direct port `http://localhost:27402`). Log in using `admin` / `Scaibu@123`.
-2. **Access Explore Tab**: Click the **Explore** compass icon on the left menu bar.
-3. **Select Tempo Datasource**: Choose **Tempo** in the top-left dropdown menu.
-4. **Search Spans**: Select **Search**, set **Service Name** to `ingestion-api`, and click **Run Query**.
-5. **Analyze Waterfall Latency**: Expand any trace to view per-span latency breakdowns:
-   - `http.request` (Traefik Gateway entry latency)
-   - `http.ingest` (Go API handler processing latency)
-   - `redis.dedup` (Redis SETNX execution latency)
-   - `kafka.produce` (Kafka batch buffer and network delivery latency)
 
 ---
 
@@ -502,6 +497,10 @@ gantt
 | 3 | **Traefik Dashboard 404** | Router rule required path routing (`/dashboard/`) targeting internal API. | Fixed [`dashboard.yml`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/infra/traefik/dynamic/dashboard.yml) HTTP router rule `PathPrefix('/dashboard') \|\| PathPrefix('/api')`. |
 | 4 | **Dynamic Config Interpolation** | Dynamic YAML files did not support environment variable interpolation. | Created templates (`middlewares.yml.template`) and updated setup script to render configs dynamically. |
 | 5 | **Kafka Connect Auth Failure** | Sink connectors used outdated password (`app`) instead of `Scaibu@123`. | Created connector templates rendered dynamically using `${POSTGRES_PASSWORD}` during setup. |
+| 6 | **Tempo DNS Resolution Failure** | `otel-collector` cached a failed DNS lookup for `tempo` hostname during Tempo restarts, causing `dial tcp: lookup tempo on 127.0.0.11:53: no such host` errors. | Restarted `otel-collector` after Tempo is healthy to refresh the Docker internal DNS cache. |
+| 7 | **JVM OTEL spans dropped — protocol mismatch** | `opentelemetry-javaagent.jar` defaulted to HTTP/1.1 on port `4317`, which is a gRPC-only port. All `kafka-connect` and `stream-processor` spans were silently dropped with `Connection reset` errors. | Added `OTEL_EXPORTER_OTLP_PROTOCOL: grpc` to `kafka-connect` and `stream-processor` in `docker-compose.yml`. |
+| 8 | **stream-processor stuck — no spans emitted** | `EXACTLY_ONCE_V2` Kafka Streams processing guarantee requires a multi-broker cluster with transaction coordinator support (`min.insync.replicas >= 2`). On a single-broker dev setup, all 4 stream threads spun forever in `Timeout exception caught trying to initialize transactions`, processing zero messages. | Switched [`Application.kt`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/services/stream-processor/src/main/kotlin/com/platform/streams/Application.kt) from `EXACTLY_ONCE_V2` to `AT_LEAST_ONCE`. |
+| 9 | **Non-blocking OTel export** | Default Go `SimpleSpanProcessor` exported spans synchronously on each request, adding latency to the API critical path. | Replaced with `BatchSpanProcessor` (queue: 16,384, batch: 2,048, timeout: 500ms) in [`tracer.go`](file:///home/btpl-lap-22/live/messaging-pipeline/event-platform/services/ingestion-api/src/infra/tracing/tracer.go). JVM services configured with `OTEL_BSP_MAX_QUEUE_SIZE=16384`. |
 
 ---
 
