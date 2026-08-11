@@ -11,4 +11,3 @@ COPY --from=build /app/build/install/stream-processor ./
 EXPOSE 8080
 ENTRYPOINT ["./bin/stream-processor"]
 
-
