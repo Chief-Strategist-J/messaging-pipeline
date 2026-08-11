@@ -13,7 +13,8 @@ func WithTracing(next http.Handler) http.Handler {
 	tracer := otel.Tracer(constants.ServiceName)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := propagator.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
-		ctx, span := tracer.Start(ctx, constants.SpanHTTPIngest)
+		spanName := r.Method + " " + r.URL.Path
+		ctx, span := tracer.Start(ctx, spanName)
 		defer span.End()
 		if span.SpanContext().IsValid() {
 			w.Header().Set("X-Trace-Id", span.SpanContext().TraceID().String())

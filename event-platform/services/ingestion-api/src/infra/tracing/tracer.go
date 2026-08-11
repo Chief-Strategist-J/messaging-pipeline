@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"os"
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"go.opentelemetry.io/otel"
@@ -19,10 +20,15 @@ func InitTracing(otlpEndpoint string) func(context.Context) {
 		panic(constants.ErrTraceExporterInit + err.Error())
 	}
 
-	res, err := resource.New(ctx, resource.WithAttributes(semconv.ServiceName(constants.ServiceName)))
-	if err != nil {
-		panic(constants.ErrResourceInit + err.Error())
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "ingestion-api-instance"
 	}
+
+	res, err := resource.New(ctx, resource.WithAttributes(
+		semconv.ServiceName(constants.ServiceName),
+		semconv.ServiceInstanceID(hostname),
+	))
 
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),

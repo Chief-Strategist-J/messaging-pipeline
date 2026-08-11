@@ -15,13 +15,19 @@ class DedupTransformer : Transformer<String, RawEvent, KeyValue<String, RawEvent
     }
 
     override fun transform(key: String, value: RawEvent?): KeyValue<String, RawEvent>? {
-        if (value == null) return null
-        val eventId = value.eventId
-        if (store.get(eventId) != null) {
-            return null
+        val tracer = io.opentelemetry.api.GlobalOpenTelemetry.getTracer("stream-processor")
+        val span = tracer.spanBuilder("kotlin-stream:dedup-check").startSpan()
+        try {
+            if (value == null) return null
+            val eventId = value.eventId
+            if (store.get(eventId) != null) {
+                return null
+            }
+            store.put(eventId, value.occurredAt)
+            return KeyValue(key, value)
+        } finally {
+            span.end()
         }
-        store.put(eventId, value.occurredAt)
-        return KeyValue(key, value)
     }
 
     override fun close() {}

@@ -8,7 +8,9 @@ import (
 	"event-platform/ingestion-api/src/core/rules"
 	"event-platform/ingestion-api/src/infra/adapters/kafka"
 	"event-platform/ingestion-api/src/infra/adapters/redis"
+	"event-platform/ingestion-api/src/shared/constants"
 	"github.com/buger/jsonparser"
+	"go.opentelemetry.io/otel"
 )
 
 func BuildEnvelopeParsingRule() rules.Rule {
@@ -16,6 +18,9 @@ func BuildEnvelopeParsingRule() rules.Rule {
 		RuleID:       "rule-parse-envelope",
 		RulePriority: 10,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:parse-envelope")
+			defer span.End()
+
 			body := evalCtx.RawPayload
 			eventID, err1 := jsonparser.GetString(body, "event_id")
 			eventType, err2 := jsonparser.GetString(body, "event_type")
@@ -72,6 +77,9 @@ func BuildEventTypeLookupRule() rules.Rule {
 		RuleID:       "rule-lookup-event-type",
 		RulePriority: 20,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:lookup-event-type")
+			defer span.End()
+
 			cfg, ok := Get(evalCtx.EventType)
 			if !ok {
 				evalCtx.ResultCode = rules.ResultUnregisteredType
@@ -88,6 +96,9 @@ func BuildPayloadValidationRule() rules.Rule {
 		RuleID:       "rule-validate-payload-schema",
 		RulePriority: 30,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:validate-payload-schema")
+			defer span.End()
+
 			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
 			if err := ValidatePayload(ctx, cfg, evalCtx.PayloadBytes); err != nil {
 				evalCtx.ResultCode = rules.ResultInvalidPayload
@@ -103,6 +114,9 @@ func BuildCustomEnrichmentRule() rules.Rule {
 		RuleID:       "rule-custom-enrichment",
 		RulePriority: 40,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:custom-enrichment")
+			defer span.End()
+
 			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
 			if proc, ok := GetCustomProcessor(cfg.CustomProcessor); ok {
 				enriched, err := proc(ctx, evalCtx.PayloadBytes)
@@ -122,6 +136,9 @@ func BuildDeduplicationRule(deduper redis.Deduper) rules.Rule {
 		RuleID:       "rule-deduplication-check",
 		RulePriority: 50,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:deduplication-check")
+			defer span.End()
+
 			seen, err := deduper.SeenBefore(ctx, evalCtx.EventID)
 			if err != nil {
 				evalCtx.ResultCode = rules.ResultDedupCheckFailed
@@ -141,6 +158,9 @@ func BuildKafkaProduceRule(producer kafka.Producer) rules.Rule {
 		RuleID:       "rule-produce-kafka-event",
 		RulePriority: 60,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:produce-kafka-event")
+			defer span.End()
+
 			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
 			if err := producer.Produce(ctx, cfg.Topic, evalCtx.EventID, evalCtx.EventType, evalCtx.OccurredAt, evalCtx.PayloadBytes); err != nil {
 				evalCtx.ResultCode = rules.ResultIngestFailed

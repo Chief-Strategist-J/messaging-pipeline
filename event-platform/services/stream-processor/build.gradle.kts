@@ -17,6 +17,8 @@ dependencies {
     implementation("org.apache.avro:avro:1.11.3")
     implementation("org.slf4j:slf4j-simple:2.0.12")
 
+    implementation("io.opentelemetry:opentelemetry-api:1.35.0")
+
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("io.qameta.allure:allure-junit5:2.25.0")
