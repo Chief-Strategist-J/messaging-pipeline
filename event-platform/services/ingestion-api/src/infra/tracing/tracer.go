@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 	"os"
+	"time"
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"go.opentelemetry.io/otel"
@@ -30,8 +31,15 @@ func InitTracing(otlpEndpoint string) func(context.Context) {
 		semconv.ServiceInstanceID(hostname),
 	))
 
+	bsp := trace.NewBatchSpanProcessor(
+		exporter,
+		trace.WithMaxQueueSize(16384),
+		trace.WithMaxExportBatchSize(2048),
+		trace.WithBatchTimeout(500*time.Millisecond),
+	)
+
 	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
+		trace.WithSpanProcessor(bsp),
 		trace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)

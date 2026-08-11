@@ -126,6 +126,8 @@ services:
       OTEL_TRACES_EXPORTER: "otlp"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_METRICS_EXPORTER: "none"
+      OTEL_BSP_MAX_QUEUE_SIZE: "16384"
+      OTEL_BSP_SCHEDULE_DELAY: "500"
 
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/ || exit 1"]
@@ -202,6 +204,8 @@ services:
       OTEL_TRACES_EXPORTER: "otlp"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_METRICS_EXPORTER: "none"
+      OTEL_BSP_MAX_QUEUE_SIZE: "16384"
+      OTEL_BSP_SCHEDULE_DELAY: "500"
     networks: [backbone]
 
   tempo:
