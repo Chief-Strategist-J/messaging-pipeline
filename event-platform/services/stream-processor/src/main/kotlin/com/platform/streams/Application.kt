@@ -1,6 +1,9 @@
 package com.platform.streams
 
-import com.platform.streams.topology.*
+import com.platform.streams.topology.TopologyBuilder
+import com.platform.streams.topology.TopologyDefinition
+import com.platform.streams.topology.TopologyStep
+import com.platform.streams.topology.registerBuiltinSteps
 import com.platform.streams.serde.AvroSerdes
 import org.apache.kafka.streams.KafkaStreams
 import org.apache.kafka.streams.StreamsConfig
