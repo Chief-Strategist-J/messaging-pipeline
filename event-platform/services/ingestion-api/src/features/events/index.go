@@ -1,8 +1,10 @@
 package events
 
-type Event = RawEvent
-type Config = EventTypeConfig
-type Rule = FieldRule
+type (
+	Event  = RawEvent
+	Config = EventTypeConfig
+	Rule   = FieldRule
+)
 
 var (
 	FeatureLoadFromFile            = LoadFromFile
