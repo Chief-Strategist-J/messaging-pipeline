@@ -17,7 +17,6 @@ var (
 	registry         = map[string]EventTypeConfig{}
 	processorsMu     sync.RWMutex
 	customProcessors = map[string]CustomProcessor{}
-	eventsTracer     = otel.Tracer("events")
 )
 
 func LoadFromFile(path string) error {
@@ -73,7 +72,7 @@ func GetCustomProcessor(name string) (CustomProcessor, bool) {
 }
 
 func ValidatePayload(ctx context.Context, cfg EventTypeConfig, payloadJSON []byte) error {
-	_, span := eventsTracer.Start(ctx, "events.ValidatePayload")
+	_, span := otel.Tracer("events").Start(ctx, "events.ValidatePayload")
 	defer span.End()
 
 	span.SetAttributes(
