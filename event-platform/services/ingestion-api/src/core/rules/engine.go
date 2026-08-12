@@ -3,9 +3,7 @@ package rules
 import (
 	"context"
 	"sort"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
+	"sync"
 )
 
 type ResultCode int
@@ -27,6 +25,7 @@ type EvaluationContext struct {
 	PayloadBytes []byte
 	ResultCode   ResultCode
 	Err          error
+	mu           sync.RWMutex
 	Metadata     map[string]interface{}
 }
 
@@ -36,6 +35,22 @@ func NewEvaluationContext(rawPayload []byte) *EvaluationContext {
 		PayloadBytes: rawPayload,
 		Metadata:     make(map[string]interface{}),
 	}
+}
+
+func (c *EvaluationContext) GetMetadata(key string) (interface{}, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	val, ok := c.Metadata[key]
+	return val, ok
+}
+
+func (c *EvaluationContext) SetMetadata(key string, val interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Metadata == nil {
+		c.Metadata = make(map[string]interface{})
+	}
+	c.Metadata[key] = val
 }
 
 type Rule interface {
@@ -84,19 +99,12 @@ func (e *Engine) Register(rule Rule) {
 }
 
 func (e *Engine) Evaluate(ctx context.Context, evalCtx *EvaluationContext) error {
-	tracer := otel.Tracer("rules-engine")
 	for _, rule := range e.rules {
-		ruleCtx, span := tracer.Start(ctx, "rule."+rule.ID())
-		span.SetAttributes(attribute.String("rule.id", rule.ID()), attribute.Int("rule.priority", rule.Priority()))
-
-		continueEval, err := rule.Evaluate(ruleCtx, evalCtx)
+		continueEval, err := rule.Evaluate(ctx, evalCtx)
 		if err != nil {
-			span.RecordError(err)
-			span.End()
 			evalCtx.Err = err
 			return err
 		}
-		span.End()
 		if !continueEval {
 			return nil
 		}

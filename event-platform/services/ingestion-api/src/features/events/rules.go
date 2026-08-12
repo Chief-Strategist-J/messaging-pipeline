@@ -2,15 +2,12 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"event-platform/ingestion-api/src/core/rules"
 	"event-platform/ingestion-api/src/infra/adapters/kafka"
 	"event-platform/ingestion-api/src/infra/adapters/redis"
-	"event-platform/ingestion-api/src/shared/constants"
 	"github.com/buger/jsonparser"
-	"go.opentelemetry.io/otel"
 )
 
 func BuildEnvelopeParsingRule() rules.Rule {
@@ -18,9 +15,6 @@ func BuildEnvelopeParsingRule() rules.Rule {
 		RuleID:       "rule-parse-envelope",
 		RulePriority: 10,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:parse-envelope")
-			defer span.End()
-
 			body := evalCtx.RawPayload
 			eventID, err1 := jsonparser.GetString(body, "event_id")
 			eventType, err2 := jsonparser.GetString(body, "event_type")
@@ -43,10 +37,8 @@ func BuildEnvelopeParsingRule() rules.Rule {
 			}
 
 			if err1 != nil || err2 != nil || err3 != nil {
-				if !json.Valid(body) {
-					evalCtx.ResultCode = rules.ResultInvalidPayload
-					return false, errors.New("invalid payload")
-				}
+				evalCtx.ResultCode = rules.ResultInvalidPayload
+				return false, errors.New("invalid payload structure")
 			}
 
 			occurredAt, _ := jsonparser.GetInt(body, "occurred_at")
@@ -77,15 +69,12 @@ func BuildEventTypeLookupRule() rules.Rule {
 		RuleID:       "rule-lookup-event-type",
 		RulePriority: 20,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:lookup-event-type")
-			defer span.End()
-
 			cfg, ok := Get(evalCtx.EventType)
 			if !ok {
 				evalCtx.ResultCode = rules.ResultUnregisteredType
 				return false, errors.New("unregistered event_type")
 			}
-			evalCtx.Metadata["config"] = cfg
+			evalCtx.SetMetadata("config", cfg)
 			return true, nil
 		},
 	}
@@ -96,10 +85,8 @@ func BuildPayloadValidationRule() rules.Rule {
 		RuleID:       "rule-validate-payload-schema",
 		RulePriority: 30,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:validate-payload-schema")
-			defer span.End()
-
-			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
+			val, _ := evalCtx.GetMetadata("config")
+			cfg, _ := val.(EventTypeConfig)
 			if err := ValidatePayload(ctx, cfg, evalCtx.PayloadBytes); err != nil {
 				evalCtx.ResultCode = rules.ResultInvalidPayload
 				return false, err
@@ -114,10 +101,8 @@ func BuildCustomEnrichmentRule() rules.Rule {
 		RuleID:       "rule-custom-enrichment",
 		RulePriority: 40,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:custom-enrichment")
-			defer span.End()
-
-			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
+			val, _ := evalCtx.GetMetadata("config")
+			cfg, _ := val.(EventTypeConfig)
 			if proc, ok := GetCustomProcessor(cfg.CustomProcessor); ok {
 				enriched, err := proc(ctx, evalCtx.PayloadBytes)
 				if err != nil {
@@ -136,9 +121,6 @@ func BuildDeduplicationRule(deduper redis.Deduper) rules.Rule {
 		RuleID:       "rule-deduplication-check",
 		RulePriority: 50,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:deduplication-check")
-			defer span.End()
-
 			seen, err := deduper.SeenBefore(ctx, evalCtx.EventID)
 			if err != nil {
 				evalCtx.ResultCode = rules.ResultDedupCheckFailed
@@ -158,10 +140,8 @@ func BuildKafkaProduceRule(producer kafka.Producer, deduper redis.Deduper) rules
 		RuleID:       "rule-produce-kafka-event",
 		RulePriority: 60,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
-			_, span := otel.Tracer(constants.ServiceName).Start(ctx, "rule:produce-kafka-event")
-			defer span.End()
-
-			cfg, _ := evalCtx.Metadata["config"].(EventTypeConfig)
+			val, _ := evalCtx.GetMetadata("config")
+			cfg, _ := val.(EventTypeConfig)
 			if err := producer.Produce(ctx, cfg.Topic, evalCtx.EventID, evalCtx.EventType, evalCtx.OccurredAt, evalCtx.PayloadBytes); err != nil {
 				if deduper != nil && evalCtx.EventID != "" {
 					_ = deduper.Forget(ctx, evalCtx.EventID)

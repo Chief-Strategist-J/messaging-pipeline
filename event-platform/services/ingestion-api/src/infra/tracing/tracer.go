@@ -2,8 +2,8 @@ package tracing
 
 import (
 	"context"
+	"log"
 	"os"
-	"time"
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"go.opentelemetry.io/otel"
@@ -14,7 +14,14 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
+type otelErrorHandler struct{}
+
+func (h otelErrorHandler) Handle(err error) {
+	log.Printf("[OTEL-ERROR] %v", err)
+}
+
 func InitTracing(otlpEndpoint string) func(context.Context) {
+	otel.SetErrorHandler(otelErrorHandler{})
 	ctx := context.Background()
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(otlpEndpoint), otlptracegrpc.WithInsecure())
 	if err != nil {
@@ -31,15 +38,11 @@ func InitTracing(otlpEndpoint string) func(context.Context) {
 		semconv.ServiceInstanceID(hostname),
 	))
 
-	bsp := trace.NewBatchSpanProcessor(
-		exporter,
-		trace.WithMaxQueueSize(16384),
-		trace.WithMaxExportBatchSize(2048),
-		trace.WithBatchTimeout(500*time.Millisecond),
-	)
+	ssp := trace.NewSimpleSpanProcessor(exporter)
 
 	tp := trace.NewTracerProvider(
-		trace.WithSpanProcessor(bsp),
+		trace.WithSampler(trace.AlwaysSample()),
+		trace.WithSpanProcessor(ssp),
 		trace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)

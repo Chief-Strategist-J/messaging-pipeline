@@ -32,18 +32,12 @@ class TopologyBuilder(
         )
 
         var rawStream = stream.mapValues { _, v ->
-            val tracer = io.opentelemetry.api.GlobalOpenTelemetry.getTracer("stream-processor")
-            val span = tracer.spanBuilder("kotlin-stream:map-raw-event").startSpan()
-            try {
-                RawEvent(
-                    eventId = v.get("event_id")?.toString() ?: "",
-                    eventType = v.get("event_type")?.toString() ?: "",
-                    occurredAt = v.get("occurred_at") as? Long ?: 0L,
-                    payload = v.get("payload")?.toString() ?: ""
-                )
-            } finally {
-                span.end()
-            }
+            RawEvent(
+                eventId = v.get("event_id")?.toString() ?: "",
+                eventType = v.get("event_type")?.toString() ?: "",
+                occurredAt = v.get("occurred_at") as? Long ?: 0L,
+                payload = v.get("payload")?.toString() ?: ""
+            )
         }
 
         for (step in definition.steps) {
@@ -63,4 +57,9 @@ class TopologyBuilder(
 }
 
 private fun extractField(evt: RawEvent, field: String): String =
-    if (field == "eventType") evt.eventType else evt.eventType
+    when (field) {
+        "eventType" -> evt.eventType
+        "eventId" -> evt.eventId
+        "payload" -> evt.payload
+        else -> evt.eventType
+    }
