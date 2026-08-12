@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"log"
 	"net/http"
 
 	"event-platform/ingestion-api/src/shared/constants"

@@ -141,6 +141,7 @@ services:
   ingestion-api:
     build:
       context: ../services/ingestion-api
+      dockerfile: Dockerfile
     depends_on:
       kafka:
         condition: service_healthy
@@ -152,6 +153,10 @@ services:
       KAFKA_BROKERS: "kafka:9092"
       REDIS_ADDR: "redis:6379"
       OTLP_ENDPOINT: "otel-collector:4317"
+      OTEL_SERVICE_NAME: "ingestion-api"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       SCHEMA_ID: "1"
       EVENT_TYPES_PATH: "/etc/config/event-types.yaml"
     volumes:
@@ -194,6 +199,7 @@ services:
   stream-processor:
     build:
       context: ../services/stream-processor
+      dockerfile: Dockerfile
     depends_on:
       kafka:
         condition: service_healthy

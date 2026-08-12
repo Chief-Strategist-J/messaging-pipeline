@@ -5,12 +5,15 @@
 
 COMPOSE_DIR := infra
 GO_SERVICE   := services/ingestion-api
-COMPOSE      := docker compose -f $(COMPOSE_DIR)/docker-compose.yml
+COMPOSE      := DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose -f $(COMPOSE_DIR)/docker-compose.yml
 
 # ---------------------------------------------------------------------------
 # Core lifecycle
 # ---------------------------------------------------------------------------
 up:
+	$(COMPOSE) up -d
+
+up-build:
 	$(COMPOSE) up -d --build
 
 down:

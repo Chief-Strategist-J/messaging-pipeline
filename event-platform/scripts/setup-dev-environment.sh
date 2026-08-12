@@ -281,6 +281,9 @@ build_and_start() {
     step "STEP 7 — Building and starting all services"
 
     cd "$PROJECT_ROOT"
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+
     log "Checking missing base images before pulling..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" config --images 2>/dev/null | sort -u | while read -r img; do
         if [ -n "$img" ]; then
@@ -295,7 +298,7 @@ build_and_start() {
 
     retry_cmd "Docker Compose startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --no-build
     if [ $? -ne 0 ]; then
-        log "Attempting docker compose build for local microservices..."
+        log "Attempting docker compose build for local microservices with BuildKit..."
         retry_cmd "Docker Compose build and startup" 3 5 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
     fi
 
