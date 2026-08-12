@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sync"
+	"unsafe"
 
 	"github.com/hamba/avro/v2"
 )
@@ -36,13 +37,21 @@ type avroRawEvent struct {
 	Payload    string `avro:"payload"`
 }
 
+func bytesToString(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return *(*string)(unsafe.Pointer(&b))
+}
+
 func encodeAvro(eventID, eventType string, occurredAt int64, payload []byte, schemaID uint32) ([]byte, error) {
 	aEvt := avroRawEvent{
 		EventID:    eventID,
 		EventType:  eventType,
 		OccurredAt: occurredAt,
-		Payload:    string(payload),
+		Payload:    bytesToString(payload),
 	}
+
 	encoded, err := avro.Marshal(rawEventSchema, aEvt)
 	if err != nil {
 		return nil, err
@@ -62,3 +71,5 @@ func encodeAvro(eventID, eventType string, occurredAt int64, payload []byte, sch
 	copy(res, buf.Bytes())
 	return res, nil
 }
+
+

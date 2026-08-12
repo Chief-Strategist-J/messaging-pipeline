@@ -50,7 +50,7 @@ http:
     grafana-auth:
       basicAuth:
         users:
-          - "admin:$2y$05$XGDAQckH9EDTIV15EuyCAuCPm8su8auv/0if6HX.iTP8.ZIi.Hh6G"
+          - "admin:$2y$05$pilGzo6u7czNqdiuSLa8VuwIA3sfpoYUXnDz.bX1cz.lPPLWJM/Ge"
         removeHeader: true
 
     grafana-security-headers:

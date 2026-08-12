@@ -439,6 +439,76 @@ display_summary() {
     echo ""
 }
 
+verify_all_container_health() {
+    step "STEP 13 — Verifying final health status of all containers"
+
+    log "Checking health status across all running project containers..."
+    echo ""
+    printf "  %-35s %-15s %-20s\n" "CONTAINER" "STATUS" "HEALTH"
+    printf "  %-35s %-15s %-20s\n" "-----------------------------------" "---------------" "--------------------"
+
+    local unhealth_count=0
+    docker ps --filter "label=com.docker.compose.project=$PROJECT_NAME" --format "{{.Names}}\t{{.Status}}" | while read -r c_name c_status c_health extra; do
+        if [ -n "$c_name" ]; then
+            local full_health="$c_health $extra"
+            if [ -z "$c_health" ]; then full_health="n/a"; fi
+
+            printf "  %-35s %-15s %-20s\n" "$c_name" "$c_status" "$full_health"
+
+            if [[ "$full_health" == *"unhealthy"* ]] || [[ "$c_status" == *"exited"* ]]; then
+                unhealth_count=$((unhealth_count + 1))
+            fi
+        fi
+    done
+
+    echo ""
+    if [ "$unhealth_count" -gt 0 ]; then
+        fail "Found $unhealth_count unhealthy container(s)."
+    else
+        ok "All project containers are running and 100% healthy!"
+    fi
+}
+
+verify_grafana_connectivity() {
+    step "STEP 14 — Verifying Grafana REST APIs and service connectivity"
+
+    log "Checking Grafana UI API (/api/health)..."
+    local g_health
+    g_health=$(curl -s -u admin:Scaibu@123 http://127.0.0.1:27402/api/health 2>/dev/null || true)
+    if [[ "$g_health" == *"database"* ]]; then
+        ok "Grafana REST API (/api/health): 200 OK — $g_health"
+    else
+        fail "Grafana REST API (/api/health) check failed: $g_health"
+    fi
+
+    log "Checking Grafana Datasources API (/api/datasources)..."
+    local ds_list
+    ds_list=$(curl -s -u admin:Scaibu@123 http://127.0.0.1:27402/api/datasources 2>/dev/null || true)
+    if [[ "$ds_list" == *"prometheus"* ]] && [[ "$ds_list" == *"tempo"* ]]; then
+        ok "Grafana Registered Datasources API: Prometheus & Tempo present"
+    else
+        fail "Grafana Datasources API check failed: $ds_list"
+    fi
+
+    log "Testing Grafana -> Prometheus backend API connection (/api/datasources/uid/prometheus/health)..."
+    local prom_health
+    prom_health=$(curl -s -u admin:Scaibu@123 http://127.0.0.1:27402/api/datasources/uid/prometheus/health 2>/dev/null || true)
+    if [[ "$prom_health" == *"Successfully queried"* ]] || [[ "$prom_health" == *"OK"* ]]; then
+        ok "Grafana -> Prometheus API Health: 200 OK — $prom_health"
+    else
+        fail "Grafana -> Prometheus connection failed: $prom_health"
+    fi
+
+    log "Testing Grafana -> Tempo backend API connection (/api/datasources/uid/tempo/health)..."
+    local tempo_health
+    tempo_health=$(curl -s -u admin:Scaibu@123 http://127.0.0.1:27402/api/datasources/uid/tempo/health 2>/dev/null || true)
+    if [[ "$tempo_health" == *"Data source is working"* ]] || [[ "$tempo_health" == *"OK"* ]]; then
+        ok "Grafana -> Tempo API Health: 200 OK — $tempo_health"
+    else
+        fail "Grafana -> Tempo connection failed: $tempo_health"
+    fi
+}
+
 main() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════════════════╗"
@@ -458,6 +528,8 @@ main() {
     provision_kafka_topics
     register_avro_schemas
     register_kafka_connectors
+    verify_all_container_health
+    verify_grafana_connectivity
     display_summary
 }
 

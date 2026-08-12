@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"github.com/redis/go-redis/v9"
@@ -15,7 +16,15 @@ type Deduper interface {
 type redisDeduper struct{ client *redis.Client }
 
 func NewRedisDeduper(addr string) Deduper {
-	return &redisDeduper{client: redis.NewClient(&redis.Options{Addr: addr})}
+	return &redisDeduper{client: redis.NewClient(&redis.Options{
+		Addr:         addr,
+		PoolSize:     500,
+		MinIdleConns: 50,
+		DialTimeout:  2 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+		PoolTimeout:  3 * time.Second,
+	})}
 }
 
 func (d *redisDeduper) SeenBefore(ctx context.Context, eventID string) (bool, error) {

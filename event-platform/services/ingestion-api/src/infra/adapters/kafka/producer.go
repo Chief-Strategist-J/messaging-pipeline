@@ -43,8 +43,17 @@ func (p *kafkaProducer) Produce(ctx context.Context, topic string, eventID strin
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	record.Headers = carrier.Headers
 
-	res := p.client.ProduceSync(ctx, record)
-	return res.FirstErr()
+	errChan := make(chan error, 1)
+	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
+		errChan <- err
+	})
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (p *kafkaProducer) Close() {

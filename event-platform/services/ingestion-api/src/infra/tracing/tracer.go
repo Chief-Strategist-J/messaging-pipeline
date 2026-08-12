@@ -38,11 +38,11 @@ func InitTracing(otlpEndpoint string) func(context.Context) {
 		semconv.ServiceInstanceID(hostname),
 	))
 
-	ssp := trace.NewSimpleSpanProcessor(exporter)
+	bsp := trace.NewBatchSpanProcessor(exporter)
 
 	tp := trace.NewTracerProvider(
 		trace.WithSampler(trace.AlwaysSample()),
-		trace.WithSpanProcessor(ssp),
+		trace.WithSpanProcessor(bsp),
 		trace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
