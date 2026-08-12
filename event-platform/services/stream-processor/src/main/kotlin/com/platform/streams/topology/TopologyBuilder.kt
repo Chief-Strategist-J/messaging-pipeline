@@ -19,8 +19,13 @@ class TopologyBuilder(
     fun build(): Topology {
         val builder = StreamsBuilder()
 
-        val dedupStoreBuilder = Stores.keyValueStoreBuilder(
-            Stores.persistentKeyValueStore("dedup-store"),
+        val dedupStoreBuilder = Stores.windowStoreBuilder(
+            Stores.persistentWindowStore(
+                "dedup-store",
+                Duration.ofDays(1),
+                Duration.ofHours(1),
+                false
+            ),
             Serdes.String(),
             Serdes.Long()
         )
