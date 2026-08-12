@@ -1,0 +1,18 @@
+# Allure transient test data & reports
+allure-results/
+allure-report/
+allure-report-single/
+**/allure-results/
+**/allure-report/
+**/allure-report-single/
+**/stats_snapshots/
+**/reports/unit/
+**/reports/integration/
+**/reports/benchmark/
+**/reports/loadtest/
+
+# Python & Pytest caches
+__pycache__/
+*.pyc
+.pytest_cache/
+EOF

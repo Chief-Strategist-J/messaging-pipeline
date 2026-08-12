@@ -83,10 +83,11 @@ func (e *Engine) Register(rule Rule) {
 	e.sortRules()
 }
 
+var engineTracer = otel.Tracer("rules-engine")
+
 func (e *Engine) Evaluate(ctx context.Context, evalCtx *EvaluationContext) error {
-	tracer := otel.Tracer("rules-engine")
 	for _, rule := range e.rules {
-		ruleCtx, span := tracer.Start(ctx, "rule."+rule.ID())
+		ruleCtx, span := engineTracer.Start(ctx, "rule."+rule.ID())
 		span.SetAttributes(attribute.String("rule.id", rule.ID()), attribute.Int("rule.priority", rule.Priority()))
 
 		continueEval, err := rule.Evaluate(ruleCtx, evalCtx)

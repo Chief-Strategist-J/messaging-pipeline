@@ -1,0 +1,21 @@
+runbooks:
+  iterations:
+    - id: "20260812-performance-report"
+      title: "2026-08-12 Ingestion API Async Ingestion & Deduplication Performance Iteration"
+      date: "2026-08-12"
+      bundle_path: "runbooks/iterations/20260812-performance-report/"
+      decisions:
+        - id: "20260812-002"
+          title: "Async Ingestion, Deduplication Resilience, Memory Reuse & Store Windowing"
+          path: "runbooks/iterations/20260812-performance-report/decisions/20260812-002-async-ingestion-and-dedup-resilience.md"
+          status: "accepted"
+      reports:
+        - id: "20260812-001"
+          title: "Allure Single-File HTML Test & Performance Report"
+          html_path: "runbooks/iterations/20260812-performance-report/reports/20260812-001-allure-performance-test-report.html"
+          md_path: "runbooks/iterations/20260812-performance-report/reports/20260812-001-allure-performance-test-report.md"
+          status: "passed"
+      notebooks:
+        - title: "Empirical Ingestion Benchmark Investigation"
+          path: "runbooks/iterations/20260812-performance-report/notebooks/investigation.md"
+      scripts_dir: "runbooks/iterations/20260812-performance-report/scripts/"

@@ -1,8 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"","2149","test_single_event_ingestion","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","49","test_duplicate_event_deduped","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","36","test_health_check","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","8","test_malformed_json_rejected","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","13","test_invalid_event_type_rejected","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","13","test_missing_event_id_rejected","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""
-"","263274","test_load_10k_requests","event-platform.loadtest","2026-08-10","passed","2026-08-10","","test_ingestion_pipeline","",""

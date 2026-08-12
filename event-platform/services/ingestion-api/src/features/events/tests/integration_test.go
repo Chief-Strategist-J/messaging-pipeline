@@ -35,6 +35,11 @@ func (m *mockDeduper) SeenBefore(ctx context.Context, eventID string) (bool, err
 	return false, nil
 }
 
+func (m *mockDeduper) Forget(ctx context.Context, eventID string) error {
+	delete(m.seen, eventID)
+	return nil
+}
+
 func TestEventsApiIntegration(t *testing.T) {
 	cfg := events.RegistryConfig{
 		EventTypes: []events.EventTypeConfig{
@@ -111,6 +116,10 @@ type failDeduper struct{}
 
 func (f *failDeduper) SeenBefore(ctx context.Context, eventID string) (bool, error) {
 	return false, errors.New("redis down")
+}
+
+func (f *failDeduper) Forget(ctx context.Context, eventID string) error {
+	return errors.New("redis down")
 }
 
 func TestDeduperFailure(t *testing.T) {

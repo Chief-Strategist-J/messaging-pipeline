@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/buger/jsonparser"
 	"go.opentelemetry.io/otel"
@@ -11,7 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var registry = map[string]EventTypeConfig{}
+var (
+	registryMu       sync.RWMutex
+	registry         = map[string]EventTypeConfig{}
+	processorsMu     sync.RWMutex
+	customProcessors = map[string]CustomProcessor{}
+	eventsTracer     = otel.Tracer("events")
+)
 
 func LoadFromFile(path string) error {
 	data, err := os.ReadFile(path)
@@ -26,6 +33,8 @@ func LoadFromFile(path string) error {
 }
 
 func LoadFromConfig(cfg RegistryConfig) error {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	for _, et := range cfg.EventTypes {
 		if et.Name == "" {
 			return fmt.Errorf("event type entry missing name")
@@ -39,15 +48,17 @@ func LoadFromConfig(cfg RegistryConfig) error {
 }
 
 func Get(name string) (EventTypeConfig, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	cfg, ok := registry[name]
 	return cfg, ok
 }
 
 type CustomProcessor func(ctx context.Context, payloadJSON []byte) ([]byte, error)
 
-var customProcessors = map[string]CustomProcessor{}
-
 func RegisterCustomProcessor(name string, fn CustomProcessor) {
+	processorsMu.Lock()
+	defer processorsMu.Unlock()
 	customProcessors[name] = fn
 }
 
@@ -55,12 +66,14 @@ func GetCustomProcessor(name string) (CustomProcessor, bool) {
 	if name == "" {
 		return nil, false
 	}
+	processorsMu.RLock()
+	defer processorsMu.RUnlock()
 	fn, ok := customProcessors[name]
 	return fn, ok
 }
 
 func ValidatePayload(ctx context.Context, cfg EventTypeConfig, payloadJSON []byte) error {
-	_, span := otel.Tracer("events").Start(ctx, "events.ValidatePayload")
+	_, span := eventsTracer.Start(ctx, "events.ValidatePayload")
 	defer span.End()
 
 	span.SetAttributes(

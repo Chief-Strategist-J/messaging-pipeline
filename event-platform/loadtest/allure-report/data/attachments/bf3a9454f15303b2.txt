@@ -1,1 +1,0 @@
-ENVIRONMENT NOTE: This performance test ran in a local single-node docker-compose integration environment on developer workstation hardware.

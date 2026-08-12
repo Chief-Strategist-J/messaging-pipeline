@@ -3,6 +3,7 @@ package kafka
 import (
 	"bytes"
 	"encoding/binary"
+	"sync"
 
 	"github.com/hamba/avro/v2"
 )
@@ -19,7 +20,14 @@ const rawEventSchemaJSON = `{
 	]
 }`
 
-var rawEventSchema = avro.MustParse(rawEventSchemaJSON)
+var (
+	rawEventSchema = avro.MustParse(rawEventSchemaJSON)
+	bufferPool     = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
+)
 
 type avroRawEvent struct {
 	EventID    string `avro:"event_id"`
@@ -39,11 +47,18 @@ func encodeAvro(eventID, eventType string, occurredAt int64, payload []byte, sch
 	if err != nil {
 		return nil, err
 	}
-	buf := new(bytes.Buffer)
+
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
 	buf.WriteByte(0x0)
-	idBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(idBytes, schemaID)
-	buf.Write(idBytes)
+	var idBytes [4]byte
+	binary.BigEndian.PutUint32(idBytes[:], schemaID)
+	buf.Write(idBytes[:])
 	buf.Write(encoded)
-	return buf.Bytes(), nil
+
+	res := make([]byte, buf.Len())
+	copy(res, buf.Bytes())
+	return res, nil
 }

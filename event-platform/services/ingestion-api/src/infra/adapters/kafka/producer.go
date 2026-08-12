@@ -51,12 +51,14 @@ func (p *kafkaProducer) Close() {
 	p.client.Close()
 }
 
+var kafkaTracer = otel.Tracer(constants.ServiceName)
+
 type tracedProducer struct {
 	inner *kafkaProducer
 }
 
 func (t *tracedProducer) Produce(ctx context.Context, topic string, eventID string, eventType string, occurredAt int64, payload []byte) error {
-	ctx, span := otel.Tracer(constants.ServiceName).Start(ctx, constants.SpanKafkaProduce)
+	ctx, span := kafkaTracer.Start(ctx, constants.SpanKafkaProduce)
 	span.SetAttributes(attribute.String(constants.AttrKafkaTopic, topic))
 	defer span.End()
 	return t.inner.Produce(ctx, topic, eventID, eventType, occurredAt, payload)

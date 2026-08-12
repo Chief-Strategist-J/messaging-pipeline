@@ -1,0 +1,526 @@
+feature:
+  name: "auth"
+  purpose: "Enterprise Identity & Access Management (IAM) vertical slice owning authentication, user registration, credential verification, OpenTelemetry distributed tracing, and JWT session security."
+  criticality: "CRITICAL"
+
+tla_formal_verification_results:
+  tool: "TLC Model Checker v2026.07.18"
+  specification_file: "src/features/auth/tla/AuthFlow.tla"
+  config_file: "src/features/auth/tla/AuthFlow.cfg"
+  verification_status: "PASSED (0 Invariant Violations across 1.67M+ States Verified)"
+  states_generated: 1672252
+  distinct_states_found: 799933
+  state_graph_search_depth: 29
+  fifteen_formal_domains_modeled:
+    1_credential_handling: "Username existence, wrong password, policy failures, temp/permanent account lockout."
+    2_authentication_flow: "Client validation, request submission, backend verification, session creation & destruction."
+    3_access_token: "Generation, uniqueness, TTL expiration ticks, revocation sets, user/session binding."
+    4_refresh_token: "Pair rotation, old token revocation, refresh replay detection & automatic security isolation."
+    5_authorization: "Roles (admin/manager/user), permissions sets, privilege escalation guards."
+    6_retry_and_rate_limiting: "Bounded retries (MaxRetries=3), CAPTCHA triggers, IP/user rate limiting."
+    7_network_failures: "Drop/restore network channels, packet loss simulation, disconnected state recovery."
+    8_backend_failures: "Service health transitions, DB pool exhaustion, HTTP 500 fault handling."
+    9_concurrency: "Multiple login requests, max sessions per user enforcement, session race guards."
+    10_security_attacks: "Refresh token replay detection, CSRF validation, session fixation protection."
+    11_state_consistency: "One active token per session, active user token ownership, state hygiene."
+    12_session_management: "Creation, expiration, multi-device capping (MaxSessionsPerUser=2)."
+    13_audit_and_observability: "Sequence stream capturing LOGIN_SUCCESS, REFRESH_ROTATED, SECURITY_ALERT."
+    14_formal_invariants: "AuthSafetyInvariant, AuthenticatedImpliesValidTokenAndUser, RevokedTokensNeverAuthenticate."
+    15_liveness_properties: "Valid login eventually authenticates; logout eventually destroys active session."
+
+empirical_measured_performance_metrics:
+  benchmark_environment: "Node v20.11 / Vitest v4.1 / JSDOM Environment"
+  measured_at: "2026-08-04T16:30:00Z"
+  sample_size: "1,000 full authentication cycles (3,000 state transitions)"
+  results:
+    total_benchmark_duration_ms: 190.77
+    avg_state_transition_ms: 0.0636
+    p50_median_latency_ms: 0.0490
+    p90_percentile_latency_ms: 0.0784
+    p99_tail_latency_ms: 5.0452
+    large_payload_10kb_processing_ms: 8.00
+
+ascii_architecture_tree: |
+  +---------------------------------------------------------------------------------------------------+
+  |                                   AUTH FEATURE VERTICAL SLICE                                     |
+  +---------------------------------------------------------------------------------------------------+
+  |                                                                                                   |
+  |  [React UI Layer]                                                                                 |
+  |     ├── LoginForm.tsx ------------+                                                               |
+  |     ├── SignupForm.tsx -----------|                                                               |
+  |     ├── ForgotPasswordForm.tsx ---+                                                               |
+  |     └── DashboardView.tsx         |                                                               |
+  |                                   v                                                               |
+  |  [Modular Validation Layer] (DRY Principle)                                                      |
+  |     ├── validation/types.ts -------> Models & Interfaces (ValidationResult, ValidationRule)       |
+  |     ├── validation/rules.ts -------> Declarative Schema Configurations (LOGIN_SCHEMA)            |
+  |     └── validation/engine.ts ------> Schema Execution Engine & AuthValidator                      |
+  |                                   |                                                               |
+  |  [Custom Hooks Layer]             v                                                               |
+  |     ├── useAuthManagement() (src/features/auth/hooks/use-auth-management.ts)                     |
+  |     └── useApiKeyService() (src/features/auth/hooks/use-api-key-service.ts)                      |
+  |                                   |                                                               |
+  |                                   | Dispatches Redux Action                                       |
+  |                                   v                                                               |
+  |  [State Management Layer]                                                                         |
+  |     ├── authSlice.ts <------------+ (src/features/auth/store/auth-slice.ts)                        |
+  |     │     (reducers: loginRequest, loginSuccess, loginFailure, signupRequest, logout)            |
+  |     │                                                                                             |
+  |     └── authSaga.ts -------------> Intercepts takeLatest(loginRequest / signupRequest)            |
+  |           (src/features/auth/store/auth-saga.ts)                                                 |
+  |                                   |                                                               |
+  |                                   | Invokes Service Function                                      |
+  |                                   v                                                               |
+  |  [API & Core Services Layer]                                                                      |
+  |     ├── ApiKeyService -------------> Constructor DI Overridable Service                           |
+  |     └── auth-api.ts -------------> loginApi() / signupApi() / forgotPasswordApi()                 |
+  |           (src/features/auth/services/auth-api.ts)                                               |
+  |                                   |                                                               |
+  |                                   | HTTP Request via Centralized Telemetry Client                 |
+  |                                   v                                                               |
+  |  [Shared Infrastructure & OpenTelemetry Layer]                                                    |
+  |     ├── TelemetryService (src/lib/telemetry.ts) -- W3C Distributed Context Generator               |
+  |     ├── HttpClient (src/lib/http-client.ts) ----- Attaches traceparent & Bearer Token              |
+  |     └── API_ENDPOINTS (src/lib/api-endpoints.ts)                                                  |
+  |                                   |                                                               |
+  |                                   v (HTTP POST / GET)                                             |
+  |  [Spring Boot REST Backend]                                                                       |
+  |     ├── /api/v1/auth/login                                                                        |
+  |     ├── /api/v1/auth/signup                                                                       |
+  |     ├── /api/v1/auth/forgot-password                                                              |
+  |     ├── /api/v1/auth/reset-password                                                               |
+  |     └── /api/v1/auth/verify-email                                                                 |
+  |                                                                                                   |
+  +---------------------------------------------------------------------------------------------------+
+
+ascii_logical_flow: |
+  +---------------------------------------------------------------------------------------------------+
+  |                                   AUTHENTICATION EXECUTION FLOW                                   |
+  +---------------------------------------------------------------------------------------------------+
+  |                                                                                                   |
+  |   (1) User Input                                                                                  |
+  |        [LoginForm] --(validate via AuthValidator)--> [useAuthManagement]                          |
+  |                                                         |                                         |
+  |   (2) Redux Dispatch                                    v                                         |
+  |        [store.dispatch(authActions.loginRequest(credentials))]                                    |
+  |                                                         |                                         |
+  |   (3) Redux Saga Interception                           v                                         |
+  |        [handleLoginSaga] --(call)--> [loginApi(credentials)]                                      |
+  |                                                 |                                                 |
+  |   (4) Network Transmission & Distributed Tracing    v                                         |
+  |        [TelemetryService.createSpan()] --> Attach traceparent                                     |
+  |        [HttpClient.post('/api/v1/auth/login')] ----> [Spring Boot REST API]                        |
+  |                                                         |                                         |
+  |   (5) Response Resolution                               v                                         |
+  |        [ApiSingleResponse<T>] <-------------------------+                                         |
+  |                 |                                                                                 |
+  |        +--------+--------+                                                                        |
+  |        |                 |                                                                        |
+  |     [SUCCESS]         [FAILURE]                                                                   |
+  |        |                 |                                                                        |
+  |        v                 v                                                                        |
+  |  Set Bearer Token  Put loginFailure                                                               |
+  |        |           (authActions)                                                                  |
+  |        v                 |                                                                        |
+  |  Put loginSuccess        v                                                                        |
+  |  (authActions)    Update state.error                                                              |
+  |        |                 |                                                                        |
+  |        +--------+--------+                                                                        |
+  |                 |                                                                                 |
+  |                 v                                                                                 |
+  |   (6) UI Render Update                                                                            |
+  |        [LoginForm & App Header UI Update]                                                         |
+  |                                                                                                   |
+  +---------------------------------------------------------------------------------------------------+
+
+ascii_directory_tree: |
+  src/features/auth/
+  ├── components/
+  │   ├── login-form.tsx
+  │   ├── signup-form.tsx
+  │   ├── forgot-password-form.tsx
+  │   ├── auth-status-dialog.tsx
+  │   └── dashboard-view.tsx
+  ├── constants/
+  │   └── index.ts
+  ├── hooks/
+  │   ├── use-auth-management.ts
+  │   └── use-api-key-service.ts
+  ├── services/
+  │   ├── api-key-service.ts
+  │   └── auth-api.ts
+  ├── store/
+  │   ├── auth-slice.ts
+  │   └── auth-saga.ts
+  ├── validation/
+  │   ├── types.ts
+  │   ├── rules.ts
+  │   └── engine.ts
+  ├── stories/
+  │   ├── login-form.stories.tsx
+  │   ├── signup-form.stories.tsx
+  │   ├── forgot-password-form.stories.tsx
+  │   ├── auth-status-dialog.stories.tsx
+  │   └── dashboard-view.stories.tsx
+  ├── tests/
+  │   ├── unit/
+  │   │   ├── login-form.test.tsx
+  │   │   └── auth-slice.test.ts
+  │   ├── integration/
+  │   │   └── auth-integration.test.ts
+  │   ├── performance/
+  │   │   └── auth-performance.test.ts
+  │   ├── system/
+  │   │   └── auth-system.test.ts
+  │   └── uat/
+  │       └── auth-uat.test.tsx
+  ├── tla/
+  │   ├── AuthFlow.tla
+  │   └── AuthFlow.cfg
+  ├── types/
+  │   └── index.ts
+  ├── context.yaml
+  └── index.ts
+
+data_flow_specifications:
+  stage_1_client_ui_input:
+    description: "Raw form input types, constraints, and validation rules captured in React UI components."
+    login_input_structure: |
+      {
+        "email": "<string: RFC 5322 Email Format | required | trimmed>",
+        "password": "<string: Min 8 Characters | required>"
+      }
+    signup_input_structure: |
+      {
+        "name": "<string: Full Name | required | trimmed>",
+        "email": "<string: RFC 5322 Email Format | required | trimmed>",
+        "password": "<string: Min 8 Characters | required>",
+        "companyName": "<string: Company Name | optional | trimmed>",
+        "agreeToTerms": "<boolean: Terms Acceptance | required: must be true>"
+      }
+
+  stage_2_redux_action_dispatch:
+    description: "Type signatures and payload contracts of dispatched Redux actions."
+    login_request_action_structure: |
+      {
+        "type": "<string: 'auth/loginRequest'>",
+        "payload": {
+          "email": "<string: Validated Email>",
+          "password": "<string: Raw Password>"
+        }
+      }
+    login_success_action_structure: |
+      {
+        "type": "<string: 'auth/loginSuccess'>",
+        "payload": {
+          "token": "<string: JWT Bearer Token>",
+          "user": {
+            "id": "<string: User Identifier>",
+            "email": "<string: User Email>",
+            "name": "<string: User Display Name>",
+            "role": "<enum: 'admin' | 'manager' | 'user'>"
+          }
+        }
+      }
+
+  stage_3_saga_payload_transformation:
+    description: "Redux-Saga interceptor input/output structures and generator side-effects."
+    saga_execution_schema: |
+      {
+        "actionReceived": {
+          "type": "<string: 'auth/loginRequest'>",
+          "payload": {
+            "email": "<string: Validated Email>",
+            "password": "<string: Password>"
+          }
+        },
+        "serviceCall": {
+          "function": "<string: 'loginApi'>",
+          "argumentSchema": {
+            "email": "<string: Validated Email>",
+            "password": "<string: Password>"
+          }
+        },
+        "putSuccessEffect": {
+          "type": "<string: 'auth/loginSuccess'>",
+          "payload": {
+            "token": "<string: JWT Bearer Token>",
+            "user": {
+              "id": "<string: User Identifier>",
+              "email": "<string: User Email>",
+              "name": "<string: User Display Name>",
+              "role": "<enum: 'admin' | 'manager' | 'user'>"
+            }
+          }
+        }
+      }
+
+  stage_4_http_network_wire_data:
+    description: "Outbound HTTP request envelope transmitted across wire to Spring Boot."
+    wire_request_envelope_structure: |
+      {
+        "method": "<string: 'POST'>",
+        "endpoint": "<string: '/api/v1/auth/login'>",
+        "headers": {
+          "Content-Type": "<string: 'application/json'>",
+          "Accept": "<string: 'application/json'>",
+          "X-Trace-Id": "<string: 32-char hex trace ID>",
+          "X-Correlation-Id": "<string: corr-timestamp-random>",
+          "traceparent": "<string: 00-traceId-spanId-01>",
+          "Authorization": "<string: 'Bearer <JWT_TOKEN>' | optional>"
+        },
+        "body": {
+          "email": "<string: Trimmed Email | required>",
+          "password": "<string: Password String | required>"
+        }
+      }
+
+  stage_5_backend_response_parsing:
+    description: "Spring Boot ApiSingleResponse<T> JSON envelope structure and parsing constraints."
+    inbound_api_response_structure: |
+      {
+        "status": "<number: HTTP Status Code | 200 | 400 | 401 | 500>",
+        "code": "<number: Response Status Code>",
+        "message": "<string: Human Readable Message | optional>",
+        "error": "<string | object: Error payload | optional>",
+        "data": {
+          "token": "<string: JWT Bearer Token | required on success>",
+          "user": {
+            "id": "<string: Unique Identifier>",
+            "email": "<string: Email Address>",
+            "name": "<string: User Name>",
+            "role": "<enum: 'admin' | 'manager' | 'user'>"
+          }
+        }
+      }
+
+  stage_6_redux_store_state_mutation:
+    description: "Target slice schema and state mutation objects in Redux store."
+    target_slice: "state.auth"
+    auth_state_structure: |
+      {
+        "user": "<UserProfile object | null>",
+        "isAuthenticated": "<boolean: Session Active Flag>",
+        "token": "<string: JWT Token String | null>",
+        "status": "<enum: 'idle' | 'loading' | 'succeeded' | 'failed'>",
+        "error": "<string: Error Description | null>"
+      }
+
+business_logic:
+  - rule: "Authentication Credential Validation & Dispatch"
+    condition: "if (user.email is valid RFC 5322 format && user.password.length >= 8)"
+    action: "Dispatch authActions.loginRequest(credentials) to trigger Redux Saga worker handleLoginSaga."
+    why_required: "Prevents invalid or malformed requests from traversing network boundaries, protects Spring Boot REST endpoint from bad inputs, and guarantees fast client-side feedback."
+
+  - rule: "User Registration Terms & Domain Check"
+    condition: "if (user.agreeToTerms === true && user.name.trim() !== '' && user.email is valid)"
+    action: "Invoke signupApi(signupInput) via POST /api/v1/auth/signup."
+    why_required: "Mandatory for enterprise SaaS legal compliance (GDPR/SOC2) and guarantees profile completeness prior to user record insertion."
+
+  - rule: "JWT Token Interception & Session Attachment"
+    condition: "if (apiResponse.success === true && apiResponse.data.token is present)"
+    action: "Execute HttpClient.setAuthToken(token), store JWT token in memory, and set state.auth.isAuthenticated to true."
+    why_required: "Automates bearer token attachment for all subsequent HTTP requests via centralized HttpClient middleware without requiring React components to pass auth headers manually."
+
+  - rule: "Authentication Failure Recovery & Error Isolation"
+    condition: "if (apiResponse.status === 401 || networkError occurs)"
+    action: "Clear HttpClient auth token, reset state.auth.user to null, update status to 'failed', and store normalized error message."
+    why_required: "Enforces strict state hygiene, prevents unauthorized session persistence, and isolates errors to allow immediate user retry."
+
+  - rule: "Session Liquidation & State Reset"
+    condition: "if (user triggers logout action OR JWT token expires)"
+    action: "Clear HttpClient token, wipe Redux state.auth to initialState, and redirect user to /login."
+    why_required: "Ensures complete security de-authentication, revokes local session privileges, and prevents unauthorized data leaks."
+
+reliability_metrics_and_targets:
+  sli:
+    definition: "Quantitative measure of service behavior computed as a ratio of good events over valid events."
+    auth_login_latency_sli: "Ratio of successful POST /api/v1/auth/login requests returning < 200ms over total login requests."
+    auth_availability_sli: "Ratio of successful HTTP 200/201 Auth API responses over total valid auth requests."
+
+  slo:
+    definition: "Internal target for an SLI over a rolling 30-day window defining what 'reliable enough' means."
+    auth_availability_slo: "99.9% availability over trailing 30 days."
+    auth_latency_slo: "99.0% of authentication requests processed in < 200ms (p99)."
+
+  sla:
+    definition: "External, contractual commitment tied to an SLO with financial or credit penalties on breach."
+    auth_sla_commitment: "99.5% uptime commitment for Auth IAM services (leaving 0.4% margin below internal 99.9% SLO)."
+
+  error_budget:
+    definition: "Allowed unreliability = 1 - SLO over the SLO window."
+    budget_30_day: "0.1% unreliability budget over 30 days (~43.2 minutes of total downtime equivalent)."
+
+  error_budget_policy:
+    policy_description: "Pre-agreed written consequences of error budget exhaustion."
+    actions:
+      - "Freeze all non-essential feature deployments on budget exhaustion."
+      - "Mandate root-cause postmortem analysis within 24 hours of budget breach."
+      - "Escalate directly to VP of Engineering if budget burn rate > 14x over 1 hour."
+
+  burn_rate:
+    definition: "Consumption speed of the error budget relative to sustainable consumption rate."
+    alert_thresholds:
+      fast_burn: "14.4x burn rate over 1-hour window (consumes 2% of 30-day budget in 1 hr) -> P1 Page."
+      slow_burn: "6x burn rate over 6-hour window (consumes 5% of 30-day budget in 6 hrs) -> P2 Ticket."
+
+  multi_window_multi_burn_rate_alerting:
+    pattern: "Pair short window (fast detection, e.g. 5 min) with long window (reduces false positives, e.g. 1 hr) at each severity tier."
+    rules:
+      - severity: "P1 Critical Page"
+        short_window: "5 minutes (14.4x burn rate)"
+        long_window: "1 hour (14.4x burn rate)"
+      - severity: "P2 Warning Ticket"
+        short_window: "30 minutes (6x burn rate)"
+        long_window: "6 hours (6x burn rate)"
+
+  nines_availability_tiers:
+    target_tier: "Three Nines (99.9%)"
+    allowed_downtime_per_year: "8.77 hours / year"
+    allowed_downtime_per_month: "43.8 minutes / month"
+
+  availability:
+    measurement_approach: "Request-based availability (successful requests / total requests) measured at Spring Boot API gateway ingress."
+
+  composite_user_journey_slo:
+    journey_name: "End-to-End User Authentication Journey"
+    steps: ["Render LoginForm", "Client Input Validation", "Redux Action Dispatch", "POST /api/v1/auth/login", "JWT Token Attachment", "Dashboard Redirect"]
+    journey_slo: "99.5% of end-to-end authentication journeys complete successfully within 1.5 seconds."
+
+  window_type:
+    type: "Rolling 30-Day Window"
+    rationale: "Moves continuously to smooth out calendar end-of-month budget resets and eliminate gaming incentives."
+
+  mttr:
+    target: "< 15 minutes (Mean Time To Recovery / Repair measured from failure detection to service restoration)."
+
+  mttd:
+    target: "< 2 minutes (Mean Time To Detect measured from incident onset to automated alert generation)."
+
+  mtbf:
+    target: "> 720 hours (Mean Time Between Failures for core IAM auth services)."
+
+  mttf:
+    target: "N/A (Software components are repairable via automated container recycling)."
+
+  toil:
+    limit: "Cap manual operational toil at < 25% of engineering time; automate token rotation, cert renewals, and container restarts."
+
+  reliability_debt:
+    tracking: "Track missing integration tests, brittle mock setups, and unowned alerts in backlog sprint allocations (15% per sprint)."
+
+  apdex_score:
+    target: "Apdex[0.2] >= 0.95 (Satisfied < 200ms, Tolerating 200ms-800ms, Frustrated > 800ms)."
+
+observability:
+  metrics:
+    types:
+      counter: "auth_login_requests_total (Total login attempts incremented on every HTTP request)"
+      gauge: "auth_active_sessions_current (Current active JWT sessions count)"
+      histogram: "auth_login_latency_seconds_bucket (Bucketed response times for percentile estimation)"
+      summary: "auth_token_validation_duration_seconds (Client-side token verification duration)"
+
+  logs:
+    format: "Structured JSON logging with MDC context propagation."
+    fields: ["timestamp", "trace_id", "span_id", "user_id", "endpoint", "status_code", "error_code"]
+
+  traces_distributed_tracing:
+    spans:
+      - "Span 1: Next.js Client Action (LoginForm submit)"
+      - "Span 2: Redux Saga Execution (handleLoginSaga)"
+      - "Span 3: Spring Boot REST Handler (AuthController.login)"
+      - "Span 4: Database Query (UserCredentials validation)"
+    context_propagation: "X-Trace-Id / W3C Trace Context headers (traceparent) passed across HTTP client network requests via TelemetryService."
+    correlation_id: "X-Correlation-Id attached at ingress and logged on every downstream service call."
+
+  golden_signals:
+    latency: "Time taken to process login, signup, and token verification requests (p50, p90, p99)."
+    traffic: "Request rate per second (RPS) on /api/v1/auth/* endpoints."
+    errors: "Rate of HTTP 4xx (client errors) and HTTP 5xx (server errors)."
+    saturation: "CPU utilization, JVM memory pool saturation, and DB connection pool usage."
+
+  red_method:
+    rate: "Rate of incoming authentication requests (requests/sec)."
+    errors: "Number of failed authentication requests (errors/sec)."
+    duration: "Distribution of authentication request latency (seconds)."
+
+  use_method:
+    utilization: "Percentage of CPU/Memory/Network bandwidth utilized on auth containers."
+    saturation: "Queue depth of pending HTTP requests and DB connection pool wait queue."
+    errors: "Counter of network buffer overflows, memory allocation failures, and connection timeouts."
+
+  cardinality_control:
+    rule: "Do NOT use user_id or email as high-cardinality metric labels on Prometheus counters; restrict metric labels to low-cardinality fields (endpoint, status_code, role)."
+
+  percentile_tail_latency:
+    p50_median: "< 45ms (Typical user experience)"
+    p90_percentile: "< 120ms (90th percentile case)"
+    p99_tail_latency: "< 200ms (1-in-100 worst case)"
+    p999_extreme_tail: "< 500ms (1-in-1000 extreme edge case)"
+
+  exemplars:
+    setup: "Attach trace_id as an exemplar to high-latency histogram buckets (> 200ms) to allow instant jump from Grafana metrics to OpenTelemetry traces."
+
+  push_vs_pull_metrics_model:
+    model: "Pull Model via Prometheus scraping /actuator/prometheus endpoint on Spring Boot backend."
+
+  sampling_strategy:
+    type: "Tail-based sampling retaining 100% of error traces (HTTP 4xx/5xx) and 5% of successful traces."
+
+  synthetic_monitoring:
+    schedule: "Run automated synthetic login check every 2 minutes from 3 geographic regions."
+
+  black_box_vs_white_box_monitoring:
+    black_box: "External HTTP health probe monitoring /api/v1/auth/health uptime."
+    white_box: "Internal JVM GC pause duration, thread pool queue size, and Saga state metrics."
+
+  alert_fatigue_prevention:
+    policy: "Prune non-actionable alerts; page ON CALL only when Error Budget burn rate > 14.4x over 1 hour."
+
+architecture_decisions:
+  - decision: "Vertical Slice Architecture (Feature Co-location)"
+    slo_metrics:
+      slo: "Developer Velocity & Component Locality: 95% of feature modifications isolated within src/features/auth/."
+      sla: "99.9% Build & Type Guarantee: Zero cross-feature circular dependency breakage."
+      error_rate: "< 0.01% imports outside public feature index."
+      mttr: "< 5 minutes to locate and resolve domain bug."
+    tradeoffs:
+      pros: "High modularity, clear ownership boundary, zero dependency leaking."
+      cons: "Minor duplicate helper boilerplate if not moved to shared/."
+    rationale: "Aligns with enterprise ProcureIQ Golden Rule for domain isolation."
+
+  - decision: "Redux Toolkit + Redux-Saga Middleware Architecture"
+    slo_metrics:
+      slo: "Async Action Dispatch Latency < 10ms; Response Handled < 200ms (p99)."
+      sla: "99.95% Session State Consistency across concurrent UI tabs."
+      error_rate: "0% unhandled async state exceptions."
+      mttr: "< 30s automatic state recovery on network disconnection via saga retry/fail."
+    tradeoffs:
+      pros: "Predictable table-driven side-effect orchestration, easy mock generator testing."
+      cons: "Requires generator syntax familiarity compared to simple async thunks."
+    rationale: "Decouples UI component rendering from complex async network orchestration."
+
+  - decision: "Centralized HttpClient Middleware for Bearer Token Management & Telemetry"
+    slo_metrics:
+      slo: "100% of outbound requests automatically attach Bearer token and OpenTelemetry W3C traceparent headers."
+      sla: "99.99% OAuth2 token integrity across API requests."
+      error_rate: "< 0.001% missing Authorization header errors."
+      mttr: "< 1s automatic token revocation on HTTP 401 response."
+    tradeoffs:
+      pros: "Centralized request tracing, standardized error normalization, zero redundant header code."
+      cons: "Global singleton client state requires explicit cleanup on logout."
+    rationale: "Provides unified networking layer for Spring Boot REST API integration."
+
+networking:
+  base_url: "http://localhost:6565 or process.env.NEXT_PUBLIC_API_URL"
+  endpoints:
+    login: "/api/v1/auth/login"
+    signup: "/api/v1/auth/signup"
+    forgot_password: "/api/v1/auth/forgot-password"
+    reset_password: "/api/v1/auth/reset-password"
+    verify_email: "/api/v1/auth/verify-email"
+
+invariants:
+  - "Zero unhandled async states: Status must strictly adhere to 'idle' | 'loading' | 'succeeded' | 'failed'."
+  - "No credentials in local state or browser storage render cycles."
+  - "Security: JWT Bearer tokens and OpenTelemetry W3C traceparent headers attached automatically via HttpClient middleware."

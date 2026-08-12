@@ -9,6 +9,7 @@ import (
 
 type Deduper interface {
 	SeenBefore(ctx context.Context, eventID string) (bool, error)
+	Forget(ctx context.Context, eventID string) error
 }
 
 type redisDeduper struct{ client *redis.Client }
@@ -23,4 +24,8 @@ func (d *redisDeduper) SeenBefore(ctx context.Context, eventID string) (bool, er
 		return false, err
 	}
 	return !setByUs, nil
+}
+
+func (d *redisDeduper) Forget(ctx context.Context, eventID string) error {
+	return d.client.Del(ctx, constants.DedupKeyPrefix+eventID).Err()
 }

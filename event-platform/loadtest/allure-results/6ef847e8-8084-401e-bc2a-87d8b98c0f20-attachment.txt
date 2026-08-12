@@ -1,1 +1,0 @@
-Pre-test DB raw_events row count: 40018

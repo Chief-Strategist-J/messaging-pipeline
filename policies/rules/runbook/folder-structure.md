@@ -4,7 +4,16 @@ Inside on each package (or under the root `notebooks/` directory for interactive
 
 runbooks/
 │
-├── registry.yaml                        ← index of every runbook across all categories
+├── registry.yaml                        ← index of every runbook & iteration across all categories
+│
+├── iterations/                          ← Vertical Date & Milestone Iteration Bundles
+│   └── {YYYYMMDD}-{slug}/               ← Daily / Feature Iteration (e.g. 20260812-performance-report)
+│       ├── decisions/                   ← ADRs for this iteration ({YYYYMMDD}-{NNN}-{slug}.md)
+│       ├── reports/                     ← Single-page HTML reports + Markdown summaries
+│       │   ├── {YYYYMMDD}-{NNN}-{slug}.html
+│       │   └── {YYYYMMDD}-{NNN}-{slug}.md
+│       ├── notebooks/                   ← Investigation & benchmark analysis
+│       └── scripts/                     ← Automation & benchmark load scripts for this iteration
 │
 ├── ansible/                             ← Category 1: Infrastructure Automation
 │   ├── ansible.cfg
@@ -21,26 +30,6 @@ runbooks/
 │       ├── production/
 │       ├── staging/
 │       └── dev/
-│
-├── decisions/                           ← Category 2: Architecture Decision Records (ADR)
-│   ├── {YYYYMMDD}-{NNN}-{slug}.md       ← Nygard/MADR format per decision
-│   │   ── Fields: title, date, status, context, decision, consequences, alternatives
-│   │   ── status: proposed | accepted | deprecated | superseded-by:{NNN}
-│   │   ── NNN: zero-padded sequential (001, 002 …)
-│   │   ── slug: kebab-case, ≤ 5 words, describes the decision
-│   └── (no sub-folders — ADRs are flat for easy grep and linking)
-│
-├── scripts/                             ← Category 5: Script / Code Runbooks
-│   ├── services/
-│   ├── workers/
-│   └── platform/
-│
-├── notebooks/                           ← Category 3: Interactive Analysis
-│   ├── investigations/
-│   │   └── {YYYY-MM-DD}-{title}/
-│   ├── analysis/
-│   │   └── {service-or-worker}/
-│   └── templates/
 │
 ├── research/                            ← Category 4: Research & Spike
 │   ├── {topic}/
