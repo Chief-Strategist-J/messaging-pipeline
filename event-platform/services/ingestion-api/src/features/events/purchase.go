@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 
@@ -17,11 +16,14 @@ func PurchaseEnrichment(ctx context.Context, payloadJSON []byte) ([]byte, error)
 	_, span := otel.Tracer("events").Start(ctx, "events.PurchaseEnrichment")
 	defer span.End()
 
-	if !json.Valid(payloadJSON) {
+	val, dataType, _, err := jsonparser.Get(payloadJSON, currencyField)
+	if err != nil {
+		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
+			return payloadJSON, nil
+		}
 		return nil, errors.New("invalid JSON")
 	}
-	val, dataType, _, err := jsonparser.Get(payloadJSON, currencyField)
-	if err != nil || dataType != jsonparser.String {
+	if dataType != jsonparser.String {
 		return payloadJSON, nil
 	}
 	upper := strings.ToUpper(string(val))
