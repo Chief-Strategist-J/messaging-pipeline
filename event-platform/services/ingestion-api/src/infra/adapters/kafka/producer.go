@@ -39,9 +39,8 @@ func (p *kafkaProducer) Produce(ctx context.Context, topic string, eventID strin
 	}
 	record := &kgo.Record{Topic: topic, Key: []byte(eventID), Value: avroBytes}
 
-	carrier := &RecordHeadersCarrier{Headers: record.Headers}
+	carrier := &RecordHeadersCarrier{Headers: &record.Headers}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
-	record.Headers = carrier.Headers
 
 	errChan := make(chan error, 1)
 	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
@@ -76,11 +75,14 @@ func (t *tracedProducer) Close() {
 }
 
 type RecordHeadersCarrier struct {
-	Headers []kgo.RecordHeader
+	Headers *[]kgo.RecordHeader
 }
 
 func (c *RecordHeadersCarrier) Get(key string) string {
-	for _, h := range c.Headers {
+	if c.Headers == nil {
+		return ""
+	}
+	for _, h := range *c.Headers {
 		if h.Key == key {
 			return string(h.Value)
 		}
@@ -89,22 +91,25 @@ func (c *RecordHeadersCarrier) Get(key string) string {
 }
 
 func (c *RecordHeadersCarrier) Set(key string, value string) {
-	for i, h := range c.Headers {
-		if h.Key == key {
-			c.Headers[i].Value = []byte(value)
+	if c.Headers == nil {
+		return
+	}
+	valBytes := []byte(value)
+	headers := *c.Headers
+	for i := range headers {
+		if headers[i].Key == key {
+			headers[i].Value = valBytes
 			return
 		}
 	}
-	c.Headers = append(c.Headers, kgo.RecordHeader{
+	*c.Headers = append(headers, kgo.RecordHeader{
 		Key:   key,
-		Value: []byte(value),
+		Value: valBytes,
 	})
 }
 
+var emptyCarrierKeys = []string{"traceparent", "tracestate", "baggage"}
+
 func (c *RecordHeadersCarrier) Keys() []string {
-	keys := make([]string, len(c.Headers))
-	for i, h := range c.Headers {
-		keys[i] = h.Key
-	}
-	return keys
+	return emptyCarrierKeys
 }
