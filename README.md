@@ -20,18 +20,19 @@
 ## 📖 Table of Contents
 
 1. [Executive Summary](#-executive-summary)
-2. [System Architecture at a Glance](#-system-architecture-at-a-glance)
-3. [Network Pipeline & Edge Ingress](#-1-network-pipeline--edge-ingress)
-4. [Messaging & Streaming Pipeline](#-2-messaging--streaming-pipeline)
-5. [Data & Storage Pipeline](#-3-data--storage-pipeline)
-6. [OpenTelemetry Distributed Tracing Pipeline](#-4-opentelemetry-distributed-tracing-pipeline)
-7. [How to Read & Inspect Traces](#-5-how-to-read--inspect-traces-waterfall-guide)
-8. [Service Configuration Reference](#-6-service-configuration-reference-tables)
-9. [Operational Decision & Truth Tables](#-7-operational-system-decision--truth-tables)
-10. [Challenges Faced & Resolutions](#-8-challenges-faced--resolutions)
-11. [Ports & Credentials](#-9-dedicated-ports--credentials)
-12. [Execution Commands](#-10-execution-commands)
-13. [Security & Hardening Notes](#-security--hardening-notes)
+2. [Real-Time Performance & Observability Dashboard](#-real-time-performance--observability-dashboard)
+3. [System Architecture at a Glance](#-system-architecture-at-a-glance)
+4. [Network Pipeline & Edge Ingress](#-1-network-pipeline--edge-ingress)
+5. [Messaging & Streaming Pipeline](#-2-messaging--streaming-pipeline)
+6. [Data & Storage Pipeline](#-3-data--storage-pipeline)
+7. [OpenTelemetry Distributed Tracing Pipeline](#-4-opentelemetry-distributed-tracing-pipeline)
+8. [How to Read & Inspect Traces](#-5-how-to-read--inspect-traces-waterfall-guide)
+9. [Service Configuration Reference](#-6-service-configuration-reference-tables)
+10. [Operational Decision & Truth Tables](#-7-operational-system-decision--truth-tables)
+11. [Challenges Faced & Resolutions](#-8-challenges-faced--resolutions)
+12. [Ports & Credentials](#-9-dedicated-ports--credentials)
+13. [Execution Commands](#-10-execution-commands)
+14. [Security & Hardening Notes](#-security--hardening-notes)
 
 ---
 
@@ -53,6 +54,18 @@ This platform ingests client-generated events at the edge, deduplicates and vali
 - ✅ **Schema-governed contracts** — Confluent Schema Registry enforces Avro compatibility on every event.
 - ✅ **Full request traceability** — W3C `traceparent` propagation from Traefik → API → Kafka, visualized in Grafana Tempo.
 - ✅ **Defense-in-depth ingress** — CIDR whitelisting, security headers, rate limiting, and payload caps applied in sequence before any request reaches application code.
+
+---
+
+## 📊 Real-Time Performance & Observability Dashboard
+
+<div align="center">
+
+![Grafana Ingestion Benchmark & Observability Dashboard](./docs/images/grafana-test-result.png)
+
+*Figure 1.1: Live Grafana Dashboard monitoring 24.8K+ total requests, peak ingestion throughput of 195 req/s (39.5 MB/s transfer speed, ~200 KiB payloads), 100% success rate, p95 latency of 246ms, and active gateway replica metrics.*
+
+</div>
 
 ---
 
