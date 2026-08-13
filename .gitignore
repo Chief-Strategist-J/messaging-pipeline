@@ -6,13 +6,10 @@ allure-report-single/
 **/allure-report/
 **/allure-report-single/
 **/stats_snapshots/
-**/reports/unit/
-**/reports/integration/
-**/reports/benchmark/
-**/reports/loadtest/
+k6-results*.json
+**/k6-results*.json
 
 # Python & Pytest caches
 __pycache__/
 *.pyc
 .pytest_cache/
-EOF
