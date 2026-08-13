@@ -21,6 +21,10 @@ runbooks:
           title: "In-Memory Coarse Deduplication & Fail-Open Resilience Architecture"
           path: "runbooks/iterations/20260812-performance-report/decisions/20260812-010-in-memory-lru-coarse-dedup-and-fail-open-resilience.md"
           status: "accepted"
+        - id: "20260812-011"
+          title: "Zero-Allocation EvaluationContext Pooling & Bounded Body Reader Architecture"
+          path: "runbooks/iterations/20260812-performance-report/decisions/20260812-011-zero-allocation-evaluation-context-and-bounded-body-reader.md"
+          status: "accepted"
       reports:
         - id: "20260812-001"
           title: "Allure Single-File HTML Test & Performance Report"

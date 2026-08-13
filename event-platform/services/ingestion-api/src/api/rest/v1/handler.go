@@ -26,6 +26,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, constants.MaxBodyBytes)
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(w, constants.ErrInvalidPayload, http.StatusBadRequest)
@@ -33,6 +35,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	evalCtx := rules.NewEvaluationContext(body)
+	defer rules.PutEvaluationContext(evalCtx)
+
 	_ = h.pipeline.Evaluate(r.Context(), evalCtx)
 
 	switch evalCtx.ResultCode {

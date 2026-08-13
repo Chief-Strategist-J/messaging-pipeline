@@ -25,30 +25,53 @@ type EvaluationContext struct {
 	PayloadBytes []byte
 	ResultCode   ResultCode
 	Err          error
-	mu           sync.RWMutex
 	Metadata     map[string]interface{}
 }
 
+var evalCtxPool = sync.Pool{
+	New: func() interface{} {
+		return &EvaluationContext{
+			Metadata: make(map[string]interface{}, 4),
+		}
+	},
+}
+
 func NewEvaluationContext(rawPayload []byte) *EvaluationContext {
-	return &EvaluationContext{
-		RawPayload:   rawPayload,
-		PayloadBytes: rawPayload,
-		Metadata:     make(map[string]interface{}),
+	ctx := evalCtxPool.Get().(*EvaluationContext)
+	ctx.RawPayload = rawPayload
+	ctx.PayloadBytes = rawPayload
+	ctx.ResultCode = ResultSuccess
+	return ctx
+}
+
+func PutEvaluationContext(ctx *EvaluationContext) {
+	if ctx == nil {
+		return
 	}
+	ctx.EventID = ""
+	ctx.EventType = ""
+	ctx.OccurredAt = 0
+	ctx.RawPayload = nil
+	ctx.PayloadBytes = nil
+	ctx.ResultCode = ResultSuccess
+	ctx.Err = nil
+	for k := range ctx.Metadata {
+		delete(ctx.Metadata, k)
+	}
+	evalCtxPool.Put(ctx)
 }
 
 func (c *EvaluationContext) GetMetadata(key string) (interface{}, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	if c.Metadata == nil {
+		return nil, false
+	}
 	val, ok := c.Metadata[key]
 	return val, ok
 }
 
 func (c *EvaluationContext) SetMetadata(key string, val interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.Metadata == nil {
-		c.Metadata = make(map[string]interface{})
+		c.Metadata = make(map[string]interface{}, 4)
 	}
 	c.Metadata[key] = val
 }

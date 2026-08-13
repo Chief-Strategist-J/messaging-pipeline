@@ -18,6 +18,8 @@ const (
 
 	ProducerLingerMs = 8 * time.Millisecond
 
+	MaxBodyBytes = 10 * 1024 * 1024
+
 	CustomProcessorPurchase = "purchaseEnrichment"
 
 	CurrencyField = "currency"
