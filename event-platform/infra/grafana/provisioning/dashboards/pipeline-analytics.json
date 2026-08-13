@@ -1,5 +1,19 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": false,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -9,9 +23,9 @@
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "id": 1,
-      "title": "⚡ Total Ingested Requests (Dynamic Prometheus)",
+      "title": "Total Ingested Requests",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -44,15 +58,15 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "id": 2,
-      "title": "🚀 Current Throughput (RPS)",
+      "title": "Peak Throughput (RPS)",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(traefik_entrypoint_requests_total[1m])) or sum(rate(traefik_service_requests_total[1m]))",
+          "expr": "sum(rate(traefik_entrypoint_requests_total[30s])) or sum(rate(traefik_service_requests_total[30s]))",
           "legendFormat": "RPS",
           "refId": "A"
         }
@@ -61,7 +75,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": { "calcs": ["max"], "fields": "", "values": false }
       },
       "fieldConfig": {
         "defaults": {
@@ -80,15 +94,15 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
       "id": 3,
-      "title": "⏱️ p95 Ingestion Latency",
+      "title": "p95 Ingestion Latency",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[30s])) by (le)) * 1000",
           "legendFormat": "p95 Latency",
           "refId": "A"
         }
@@ -97,7 +111,7 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": { "calcs": ["max"], "fields": "", "values": false }
       },
       "fieldConfig": {
         "defaults": {
@@ -116,15 +130,15 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
       "id": 4,
-      "title": "🔒 Success Rate (%)",
+      "title": "Success Rate (%)",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "(sum(rate(traefik_entrypoint_requests_total{code=~\"2..\"}[1m])) / sum(rate(traefik_entrypoint_requests_total[1m])) * 100)",
+          "expr": "(sum(rate(traefik_entrypoint_requests_total{code=~\"2..\"}[30s])) / sum(rate(traefik_entrypoint_requests_total[30s])) * 100)",
           "legendFormat": "Success Rate",
           "refId": "A"
         }
@@ -133,7 +147,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }
       },
       "fieldConfig": {
         "defaults": {
@@ -151,9 +165,80 @@
     },
     {
       "collapsed": false,
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "id": 8,
+      "title": "Peak Transfer Speed",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(traefik_entrypoint_requests_bytes_total[30s]))",
+          "legendFormat": "Ingress Speed",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["max"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "purple", "value": 10485760 }
+            ]
+          },
+          "unit": "Bps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "id": 9,
+      "title": "Avg Payload Size",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "(sum(rate(traefik_entrypoint_requests_bytes_total[30s])) / sum(rate(traefik_entrypoint_requests_total[30s])))",
+          "legendFormat": "Avg Payload Size",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["max"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 102400 },
+              { "color": "red", "value": 524288 }
+            ]
+          },
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "collapsed": false,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "id": 5,
-      "title": "📈 Real-Time Ingestion Throughput Timeline (Req/Sec)",
+      "title": "Real-Time Ingestion Throughput Timeline (Req/Sec)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -188,31 +273,31 @@
       "collapsed": false,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "id": 6,
-      "title": "⏱️ Latency Percentiles (p50, p90, p95, p99)",
+      "title": "Latency Percentiles (p50, p90, p95, p99)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.50, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.50, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[30s])) by (le)) * 1000",
           "legendFormat": "p50 (Median)",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.90, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.90, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[30s])) by (le)) * 1000",
           "legendFormat": "p90",
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[30s])) by (le)) * 1000",
           "legendFormat": "p95",
           "refId": "C"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[1m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[30s])) by (le)) * 1000",
           "legendFormat": "p99",
           "refId": "D"
         }
@@ -232,15 +317,84 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 12 },
-      "id": 7,
-      "title": "📊 HTTP Response Code Breakdown",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 10,
+      "title": "Network Transfer Speed & Bandwidth (Bytes/Sec)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(traefik_entrypoint_requests_total[1m])) by (code)",
+          "expr": "sum(rate(traefik_entrypoint_requests_bytes_total[30s]))",
+          "legendFormat": "Ingress Inflow (Request Payload B/s)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(traefik_entrypoint_responses_bytes_total[30s]))",
+          "legendFormat": "Egress Outflow (Response B/s)",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15
+          },
+          "unit": "Bps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 11,
+      "title": "Active Connections & Gateway Capacity",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traefik_open_connections)",
+          "legendFormat": "Open TCP Connections",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(traefik_service_server_up)",
+          "legendFormat": "Healthy Service Replicas",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 20 },
+      "id": 7,
+      "title": "HTTP Response Code Breakdown",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(traefik_entrypoint_requests_total[30s])) by (code)",
           "legendFormat": "HTTP {{code}}",
           "refId": "A"
         }
@@ -268,5 +422,5 @@
   "timezone": "browser",
   "title": "Event Platform — Real-Time Pipeline Analytics",
   "uid": "pipeline-analytics",
-  "version": 2
+  "version": 4
 }

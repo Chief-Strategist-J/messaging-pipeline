@@ -133,7 +133,7 @@ func TestDeduperFailure(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected StatusServiceUnavailable, got %d", rec.Code)
+	if rec.Code != http.StatusAccepted {
+		t.Errorf("expected StatusAccepted on deduper failure (fail-open), got %d", rec.Code)
 	}
 }

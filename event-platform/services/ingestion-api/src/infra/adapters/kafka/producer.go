@@ -2,11 +2,14 @@ package kafka
 
 import (
 	"context"
+	"log/slog"
 
 	"event-platform/ingestion-api/src/shared/constants"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Producer interface {
@@ -32,30 +35,8 @@ func NewKafkaProducer(brokers []string, schemaID uint32) (Producer, error) {
 	return &tracedProducer{inner: &kafkaProducer{client: client, schemaID: schemaID}}, nil
 }
 
-func (p *kafkaProducer) Produce(ctx context.Context, topic string, eventID string, eventType string, occurredAt int64, payload []byte) error {
-	avroBytes, err := encodeAvro(eventID, eventType, occurredAt, payload, p.schemaID)
-	if err != nil {
-		return err
-	}
-	record := &kgo.Record{Topic: topic, Key: []byte(eventID), Value: avroBytes}
-
-	carrier := &RecordHeadersCarrier{Headers: &record.Headers}
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
-
-	errChan := make(chan error, 1)
-	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
-		errChan <- err
-	})
-
-	select {
-	case err := <-errChan:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 func (p *kafkaProducer) Close() {
+	p.client.Flush(context.Background())
 	p.client.Close()
 }
 
@@ -64,10 +45,40 @@ type tracedProducer struct {
 }
 
 func (t *tracedProducer) Produce(ctx context.Context, topic string, eventID string, eventType string, occurredAt int64, payload []byte) error {
-	ctx, span := otel.Tracer(constants.ServiceName).Start(ctx, constants.SpanKafkaProduce)
-	span.SetAttributes(attribute.String(constants.AttrKafkaTopic, topic))
-	defer span.End()
-	return t.inner.Produce(ctx, topic, eventID, eventType, occurredAt, payload)
+	_, span := otel.Tracer(constants.ServiceName).Start(ctx, constants.SpanKafkaProduce)
+	span.SetAttributes(
+		attribute.String(constants.AttrKafkaTopic, topic),
+		attribute.String("messaging.destination.name", topic),
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.message.id", eventID),
+	)
+
+	spanCtx := trace.ContextWithSpan(ctx, span)
+
+	avroBytes, encErr := encodeAvro(eventID, eventType, occurredAt, payload, t.inner.schemaID)
+	if encErr != nil {
+		span.SetStatus(codes.Error, encErr.Error())
+		span.End()
+		return encErr
+	}
+
+	record := &kgo.Record{Topic: topic, Key: []byte(eventID), Value: avroBytes}
+	carrier := &RecordHeadersCarrier{Headers: &record.Headers}
+	otel.GetTextMapPropagator().Inject(spanCtx, carrier)
+
+	t.inner.client.Produce(context.Background(), record, func(_ *kgo.Record, deliveryErr error) {
+		if deliveryErr != nil {
+			span.SetStatus(codes.Error, deliveryErr.Error())
+			slog.Error("kafka delivery failed",
+				"topic", topic,
+				"event_id", eventID,
+				"error", deliveryErr,
+			)
+		}
+		span.End()
+	})
+
+	return nil
 }
 
 func (t *tracedProducer) Close() {

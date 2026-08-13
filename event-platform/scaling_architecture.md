@@ -46,7 +46,7 @@ flowchart TD
     T1 -->|Round Robin Load Balancing| I4
 
     I1 & I2 & I3 & I4 <-->|SETNX dedup:event_id - Fast Check| R1
-    I1 & I2 & I3 & I4 -->|Async Non-Blocking Produce| K1
+    I1 & I2 & I3 & I4 -->|Fire-and-Forget Non-Blocking Produce| K1
     K1 -->|Consumer Group Stream| KC
     KC -->|Batch Insert 500 rows/batch| PG
 ```
@@ -87,7 +87,7 @@ flowchart TD
 - **Performance**:
   - The topic `events.raw` is split into **12 partitions**.
   - Kafka handles up to **100,000+ writes/second** sequentially on disk.
-  - The Go Ingestion API sends events asynchronously to Kafka and immediately responds `202 Accepted` to the client in **~9ms**.
+  - The Go Ingestion API **fire-and-forgets** events to Kafka: `kgo.Client.Produce` enqueues the record into an in-memory batch and returns immediately. The HTTP handler responds `202 Accepted` without waiting for a Kafka network ACK. Delivery errors are recorded asynchronously in the kgo callback (logged + traced) after the response has been sent.
 
 ---
 

@@ -121,10 +121,12 @@ func BuildDeduplicationRule(deduper redis.Deduper) rules.Rule {
 		RuleID:       "rule-deduplication-check",
 		RulePriority: 50,
 		EvalFunc: func(ctx context.Context, evalCtx *rules.EvaluationContext) (bool, error) {
+			if deduper == nil {
+				return true, nil
+			}
 			seen, err := deduper.SeenBefore(ctx, evalCtx.EventID)
 			if err != nil {
-				evalCtx.ResultCode = rules.ResultDedupCheckFailed
-				return false, err
+				return true, nil
 			}
 			if seen {
 				evalCtx.ResultCode = rules.ResultDuplicate
